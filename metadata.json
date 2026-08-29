@@ -1,0 +1,6 @@
+{
+  "name": "Tethra — Smarter Money Management",
+  "description": "Production-ready fintech & personal finance platform with multi-currency accounts, savings goals, expense tracking, crypto market data, and sandbox ledger.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
