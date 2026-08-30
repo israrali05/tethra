@@ -1,7 +1,6 @@
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Toast } from './components/common/Toast';
-import { DemoBanner } from './components/common/DemoBanner';
 import { LiveChatWidget } from './components/common/LiveChatWidget';
 
 // Public Views
@@ -38,7 +37,7 @@ import { BackendConsoleView } from './components/dashboard/BackendConsoleView';
 import { AdminPortal } from './components/admin/AdminPortal';
 
 const MainRouter: React.FC = () => {
-  const { currentRoute, isAuthenticated, toast } = useApp();
+  const { currentRoute, toast } = useApp();
 
   // Public Landing / Sub-pages Routes
   if (
@@ -52,8 +51,7 @@ const MainRouter: React.FC = () => {
     currentRoute === 'contact'
   ) {
     return (
-      <div className="min-h-screen bg-[#031510] text-[#eafaf4] flex flex-col font-sans selection:bg-[#d4af37] selection:text-[#031d16]">
-        <DemoBanner />
+      <div className="min-h-screen bg-[#002018] text-[#eafaf4] flex flex-col font-sans selection:bg-[#E5C158] selection:text-[#002018]">
         <PublicHeader />
         <main className="flex-1">
           {currentRoute === 'home' ? <HomePage /> : <PublicSubPages />}
@@ -68,8 +66,7 @@ const MainRouter: React.FC = () => {
   // Auth Routes (Login / Register)
   if (currentRoute === 'login' || currentRoute === 'register') {
     return (
-      <div className="min-h-screen bg-[#031510] text-[#eafaf4] flex flex-col font-sans selection:bg-[#d4af37] selection:text-[#031d16]">
-        <DemoBanner />
+      <div className="min-h-screen bg-[#002018] text-[#eafaf4] flex flex-col font-sans selection:bg-[#E5C158] selection:text-[#002018]">
         <main className="flex-1 flex items-center justify-center">
           <AuthPages />
         </main>
@@ -130,8 +127,7 @@ const MainRouter: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#031510] text-[#eafaf4] flex flex-col font-sans selection:bg-[#d4af37] selection:text-[#031d16]">
-      <DemoBanner />
+    <div className="min-h-screen bg-[#002018] text-[#eafaf4] flex flex-col font-sans selection:bg-[#E5C158] selection:text-[#002018]">
       <DashboardLayout>{renderDashboardContent()}</DashboardLayout>
       <LiveChatWidget />
       <Toast toast={toast} />

@@ -1,6 +1,6 @@
 {
   "name": "Tethra — Smarter Money Management",
-  "description": "Production-ready fintech & personal finance platform with multi-currency accounts, savings goals, expense tracking, crypto market data, and sandbox ledger.",
+  "description": "Production-grade enterprise fintech and institutional multi-currency ledger platform with double-entry accounting, real-time rates, Tier 2 KYC/AML, high-yield vaults, and instant P2P settlement.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

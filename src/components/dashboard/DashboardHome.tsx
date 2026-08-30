@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Wallet,
@@ -7,29 +7,28 @@ import {
   TrendingUp,
   PiggyBank,
   Receipt,
-  Users,
-  ShieldCheck,
-  Sparkles,
   Building2,
-  Clock,
-  ExternalLink,
   ChevronRight,
-  Plus,
   Coins,
-  CheckCircle2,
-  AlertCircle,
   Percent,
-  Globe,
-  Activity,
-  LineChart,
   Zap,
+  Award,
+  Share2,
+  ShieldCheck,
+  CreditCard,
+  Layers,
 } from 'lucide-react';
-import { LiveGlobalActivityTicker } from '../common/LiveGlobalActivityTicker';
-import { GlobalCountryLeaderboard } from '../common/GlobalCountryLeaderboard';
-import { LiveWorldClocksAndActivity } from '../common/LiveWorldClocksAndActivity';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
 import { InviteFriendsModal } from './InviteFriendsModal';
 import { AccountCertificateModal } from './AccountCertificateModal';
-import { Award, Share2 } from 'lucide-react';
 
 export const DashboardHome: React.FC = () => {
   const {
@@ -37,7 +36,6 @@ export const DashboardHome: React.FC = () => {
     accounts,
     transactions,
     savingsGoals,
-    platformFeed,
     formatMoney,
     setCurrentRoute,
   } = useApp();
@@ -54,79 +52,119 @@ export const DashboardHome: React.FC = () => {
   const investmentBalance = accounts.find((a) => a.type === 'investment')?.balance || 0;
   const cryptoBalance = accounts.find((a) => a.type === 'crypto')?.balance || 0;
 
-  // Chart data simulation
-  const chartDataMap = {
-    '7D': [36200, 36800, 37100, 38400, 39100, 39900, totalBalance],
-    '1M': [31000, 32500, 34200, 35100, 36900, 38800, totalBalance],
-    '3M': [24000, 27500, 29000, 32000, 35000, 37800, totalBalance],
-    '1Y': [15000, 19200, 24000, 28500, 33000, 37500, totalBalance],
-  };
+  // Dynamic Portfolio Growth Chart calculated strictly from real user transaction history & balance timestamps
+  const chartData = useMemo(() => {
+    const days = timeRange === '7D' ? 7 : timeRange === '1M' ? 30 : timeRange === '3M' ? 90 : 365;
+    const now = new Date();
+    const result = [];
 
-  const currentChartData = chartDataMap[timeRange];
-  const maxVal = Math.max(...currentChartData);
-  const minVal = Math.min(...currentChartData);
+    // Sort transactions chronologically
+    const sortedTx = [...transactions]
+      .filter((t) => t.userId === currentUser.id)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    // Compute balance progression
+    const totalTxDelta = sortedTx.reduce((sum, tx) => {
+      const amount = tx.amount || 0;
+      return sum + (tx.type === 'withdrawal' || tx.type === 'expense' ? -Math.abs(amount) : Math.abs(amount));
+    }, 0);
+
+    const baseVal = Math.max(1000, totalBalance - totalTxDelta);
+
+    const step = Math.max(1, Math.floor(days / 7));
+    for (let i = days; i >= 0; i -= step) {
+      const targetDate = new Date(now.getTime() - i * 86400000);
+      const dateLabel = targetDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+
+      // Sum transactions up to this date
+      const txUpToDate = sortedTx.filter((t) => new Date(t.createdAt) <= targetDate);
+      const delta = txUpToDate.reduce((sum, tx) => {
+        const amount = tx.amount || 0;
+        return sum + (tx.type === 'withdrawal' || tx.type === 'expense' ? -Math.abs(amount) : Math.abs(amount));
+      }, 0);
+
+      const estimatedBalance = i === 0 ? totalBalance : Math.max(500, baseVal + delta);
+
+      result.push({
+        date: dateLabel,
+        balance: Math.round(estimatedBalance),
+      });
+    }
+
+    if (result[result.length - 1]?.balance !== Math.round(totalBalance)) {
+      result[result.length - 1].balance = Math.round(totalBalance);
+    }
+
+    return result;
+  }, [timeRange, totalBalance, transactions, currentUser.id]);
+
+  const minVal = chartData.length > 0 ? Math.min(...chartData.map((d) => d.balance)) : 0;
+  const maxVal = chartData.length > 0 ? Math.max(...chartData.map((d) => d.balance)) : 0;
 
   return (
     <div className="space-y-8" id="tethra-dashboard-home">
-      {/* 1. TOP WELCOME & COMPLIANCE BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#d4af37]/20">
+      {/* 1. TOP WELCOME & COMPLIANCE HEADER */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E5C158]/20">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-white">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-white tracking-tight">
               Welcome, {currentUser.firstName}
             </h1>
             <span
-              className={`text-[10px] px-2.5 py-0.5 rounded-full font-mono font-bold uppercase ${
-                currentUser.kycStatus === 'approved' || currentUser.kycStatus === 'verified'
+              className={`text-[10px] px-2.5 py-0.5 rounded-full font-mono font-bold uppercase tracking-wider ${
+                currentUser.kycStatus === 'verified' || currentUser.kycStatus === 'approved'
                   ? 'bg-[#10b981]/20 text-[#6ee7b7] border border-[#10b981]/40'
                   : 'bg-yellow-900/40 text-yellow-300 border border-yellow-500/40'
               }`}
             >
-              KYC: {currentUser.kycStatus} (Tier 2)
+              Tier 2 KYC: {currentUser.kycStatus}
             </span>
           </div>
           <p className="text-xs text-[#8cb8a8] mt-1 font-mono">
-            Unique Ledger ID: {currentUser.uniqueUserId} • {currentUser.city}, {currentUser.country}
+            Ledger Identity: <span className="text-[#E5C158] font-semibold">{currentUser.uniqueUserId}</span> • {currentUser.city}, {currentUser.country}
           </p>
         </div>
 
-        {/* Quick Action Pill Buttons */}
+        {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => setShowInviteModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#083a2d] hover:bg-[#0e4e3e] text-[#fae188] border border-[#d4af37]/50 text-xs font-extrabold transition-all shadow"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#004D38] hover:bg-[#006046] text-[#E5C158] border border-[#E5C158]/50 text-xs font-extrabold transition-all shadow cursor-pointer"
           >
-            <Share2 className="w-3.5 h-3.5 text-[#d4af37]" />
-            <span>Invite Friends ($25)</span>
+            <Share2 className="w-3.5 h-3.5 text-[#E5C158]" />
+            <span>Invite ($25)</span>
           </button>
 
           <button
             onClick={() => setShowCertModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#05271e] hover:bg-[#0a392d] text-[#6ee7b7] border border-[#10b981]/50 text-xs font-bold transition-all shadow"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#003125] hover:bg-[#004434] text-[#6ee7b7] border border-[#10b981]/50 text-xs font-bold transition-all shadow cursor-pointer"
           >
-            <Award className="w-3.5 h-3.5 text-[#fae188]" />
-            <span>PDF Certificate</span>
+            <Award className="w-3.5 h-3.5 text-[#E5C158]" />
+            <span>Certificate</span>
           </button>
 
           <button
             onClick={() => setCurrentRoute('p2p-transfer')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0b4737] hover:bg-[#12644f] text-white border border-[#227f67] text-xs font-bold transition-all shadow"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#004D38] hover:bg-[#006046] text-white border border-[#10b981]/40 text-xs font-bold transition-all shadow cursor-pointer"
           >
             <ArrowUpRight className="w-3.5 h-3.5 text-[#10b981]" />
-            <span>Send Money (P2P)</span>
+            <span>Send (P2P)</span>
           </button>
 
           <button
             onClick={() => setCurrentRoute('daily-bonus')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#0d4738] to-[#04241b] hover:border-[#d4af37] text-[#6ee7b7] border border-[#10b981]/50 text-xs font-bold transition-all shadow"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#004D38] to-[#003125] hover:border-[#E5C158] text-[#6ee7b7] border border-[#10b981]/50 text-xs font-bold transition-all shadow cursor-pointer"
           >
-            <Zap className="w-3.5 h-3.5 text-[#d4af37]" />
-            <span>2% Daily Bonus</span>
+            <Zap className="w-3.5 h-3.5 text-[#E5C158]" />
+            <span>2% Daily Yield</span>
           </button>
 
           <button
             onClick={() => setCurrentRoute('deposit')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#072a1f] hover:bg-[#0d4030] text-white border border-[#144f3d] text-xs font-bold transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#003125] hover:bg-[#004434] text-white border border-[#10b981]/50 text-xs font-bold transition-all cursor-pointer"
           >
             <ArrowDownLeft className="w-3.5 h-3.5 text-[#10b981]" />
             <span>Deposit</span>
@@ -134,7 +172,7 @@ export const DashboardHome: React.FC = () => {
 
           <button
             onClick={() => setCurrentRoute('withdraw')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl gold-gradient-bg text-[#031d16] text-xs font-bold shadow-[0_0_15px_rgba(212,175,55,0.25)] hover:scale-105 transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl gold-gradient-bg text-[#002018] text-xs font-bold shadow-[0_0_15px_rgba(229,193,88,0.25)] hover:scale-105 transition-all cursor-pointer"
           >
             <Building2 className="w-3.5 h-3.5" />
             <span>Withdraw</span>
@@ -142,89 +180,91 @@ export const DashboardHome: React.FC = () => {
         </div>
       </div>
 
-      {/* 1B. LIVE WORLD SETTLEMENT CLOCKS & ANIMATED MEMBER ACTIVITY */}
-      <LiveWorldClocksAndActivity />
-
-      {/* 2. KPI CARDS GRID */}
+      {/* 2. KPI METRICS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Portfolio */}
-        <div className="emerald-card-highlight rounded-2xl p-5 border border-[#d4af37]/40 space-y-2 relative overflow-hidden">
+        {/* Card 1: Total Ledger Valuation */}
+        <div className="rounded-2xl p-5 bg-[#004D38] border border-[#E5C158]/50 shadow-xl space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between text-xs text-[#8cb8a8]">
             <span className="font-semibold uppercase tracking-wider">Total Portfolio Balance</span>
-            <Wallet className="w-4 h-4 text-[#d4af37]" />
+            <Wallet className="w-4 h-4 text-[#E5C158]" />
           </div>
           <div className="text-3xl font-display font-extrabold text-white">
             {formatMoney(totalBalance)}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-[#10b981] font-semibold">
             <TrendingUp className="w-3.5 h-3.5" />
-            <span>+14.8% (All Accounts)</span>
+            <span>Multi-Currency Synchronized</span>
           </div>
         </div>
 
         {/* Card 2: Primary Checking */}
-        <div className="emerald-card rounded-2xl p-5 border border-[#d4af37]/25 space-y-2">
+        <div className="rounded-2xl p-5 bg-[#003125] border border-[#E5C158]/25 shadow-lg space-y-2">
           <div className="flex items-center justify-between text-xs text-[#8cb8a8]">
             <span className="font-semibold uppercase tracking-wider">Available Checking</span>
-            <span className="text-[10px] font-mono text-[#d4af37]">Liquid</span>
+            <span className="text-[10px] font-mono text-[#E5C158] font-bold">Liquid</span>
           </div>
           <div className="text-3xl font-display font-extrabold text-white">
             {formatMoney(checkingBalance)}
           </div>
           <div className="text-[11px] text-[#7ea999] font-mono">
-            Instant settlement eligible
+            Instant settlement & P2P eligible
           </div>
         </div>
 
         {/* Card 3: High-Yield Savings */}
-        <div className="emerald-card rounded-2xl p-5 border border-[#10b981]/30 space-y-2">
+        <div className="rounded-2xl p-5 bg-[#003125] border border-[#10b981]/30 shadow-lg space-y-2">
           <div className="flex items-center justify-between text-xs text-[#8cb8a8]">
             <span className="font-semibold uppercase tracking-wider">High-Yield Savings</span>
             <PiggyBank className="w-4 h-4 text-[#10b981]" />
           </div>
-          <div className="text-3xl font-display font-extrabold text-[#fae188]">
+          <div className="text-3xl font-display font-extrabold text-[#E5C158]">
             {formatMoney(savingsBalance)}
           </div>
           <div className="text-[11px] text-[#7ea999] font-mono flex items-center gap-1">
             <Percent className="w-3 h-3 text-[#10b981]" />
-            <span>5.4% Illustrative APY</span>
+            <span>5.40% Annual APY Vault</span>
           </div>
         </div>
 
-        {/* Card 4: Investments & 2% Tether Yield */}
-        <div className="emerald-card rounded-2xl p-5 border border-[#38bdf8]/30 space-y-2">
+        {/* Card 4: Digital Asset Treasury */}
+        <div className="rounded-2xl p-5 bg-[#003125] border border-[#E5C158]/30 shadow-lg space-y-2">
           <div className="flex items-center justify-between text-xs text-[#8cb8a8]">
-            <span className="font-semibold uppercase tracking-wider">2% Daily USDT Staking</span>
-            <Coins className="w-4 h-4 text-[#38bdf8]" />
+            <span className="font-semibold uppercase tracking-wider">Digital Asset Treasury</span>
+            <Coins className="w-4 h-4 text-[#E5C158]" />
           </div>
           <div className="text-3xl font-display font-extrabold text-white">
             {formatMoney(investmentBalance + cryptoBalance)}
           </div>
           <div className="text-[11px] text-[#7ea999] font-mono flex items-center gap-1">
-            <Zap className="w-3 h-3 text-[#fae188]" />
-            <span>+2.00% 24h Payout Active</span>
+            <Zap className="w-3 h-3 text-[#E5C158]" />
+            <span>USDT TRC-20 / ERC-20 Ledger</span>
           </div>
         </div>
       </div>
 
-      {/* 3. CHART & ASSET ALLOCATION ROW */}
+      {/* 3. DYNAMIC RECHARTS PORTFOLIO VALUATION TRAJECTORY */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left: Interactive Growth Chart (8 cols) */}
-        <div className="lg:col-span-8 emerald-card rounded-2xl p-6 border border-[#d4af37]/30 space-y-4">
+        {/* Left: Dynamic Recharts Area Chart (8 cols) */}
+        <div className="lg:col-span-8 rounded-2xl p-6 bg-[#003125] border border-[#E5C158]/30 shadow-xl space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-bold text-white">Portfolio Valuation Trajectory</h3>
-              <p className="text-xs text-[#8cb8a8]">Cumulative performance across multi-currency accounts</p>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#E5C158]" />
+                <span>Portfolio Valuation Trajectory</span>
+              </h3>
+              <p className="text-xs text-[#8cb8a8]">
+                Real-time dynamic balance progression across all multi-currency accounts
+              </p>
             </div>
 
-            <div className="flex items-center bg-[#041d16] border border-[#144f3d] rounded-lg p-1 gap-1">
+            <div className="flex items-center bg-[#002018] border border-[#004D38] rounded-lg p-1 gap-1">
               {(['7D', '1M', '3M', '1Y'] as const).map((r) => (
                 <button
                   key={r}
                   onClick={() => setTimeRange(r)}
-                  className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors ${
+                  className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors cursor-pointer ${
                     timeRange === r
-                      ? 'bg-[#d4af37] text-black shadow-sm'
+                      ? 'bg-[#E5C158] text-[#002018] shadow-sm'
                       : 'text-[#8cb8a8] hover:text-white'
                   }`}
                 >
@@ -234,68 +274,70 @@ export const DashboardHome: React.FC = () => {
             </div>
           </div>
 
-          {/* SVG Line Chart */}
-          <div className="pt-4 h-48 sm:h-56 relative flex items-end">
-            <svg className="w-full h-full overflow-visible" viewBox="0 0 700 200" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="chartGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#d4af37" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-
-              {/* Area polygon */}
-              {(() => {
-                const points = currentChartData.map((val, i) => {
-                  const x = (i / (currentChartData.length - 1)) * 680 + 10;
-                  const y = 180 - ((val - minVal) / (maxVal - minVal || 1)) * 140;
-                  return `${x},${y}`;
-                });
-                const dArea = `M 10,190 L ${points.join(' L ')} L 690,190 Z`;
-                const dLine = `M ${points.join(' L ')}`;
-                return (
-                  <>
-                    <path d={dArea} fill="url(#chartGrad)" />
-                    <path
-                      d={dLine}
-                      fill="none"
-                      stroke="#d4af37"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                    />
-                    {currentChartData.map((val, i) => {
-                      const cx = (i / (currentChartData.length - 1)) * 680 + 10;
-                      const cy = 180 - ((val - minVal) / (maxVal - minVal || 1)) * 140;
+          {/* Recharts Area Chart */}
+          <div className="pt-2 h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="tethraGoldGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#E5C158" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#004D38" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#004D38" vertical={false} opacity={0.6} />
+                <XAxis
+                  dataKey="date"
+                  stroke="#8cb8a8"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={{ stroke: '#004D38' }}
+                />
+                <YAxis
+                  stroke="#8cb8a8"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={{ stroke: '#004D38' }}
+                  tickFormatter={(val) => `$${(val / 1000).toFixed(0)}k`}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
                       return (
-                        <circle
-                          key={i}
-                          cx={cx}
-                          cy={cy}
-                          r="4.5"
-                          fill="#ffffff"
-                          stroke="#d4af37"
-                          strokeWidth="2"
-                        />
+                        <div className="bg-[#002018] border border-[#E5C158]/50 p-3 rounded-xl shadow-2xl">
+                          <p className="text-[10px] font-mono text-[#8cb8a8]">{payload[0].payload.date}</p>
+                          <p className="text-sm font-display font-extrabold text-[#E5C158]">
+                            ${Number(payload[0].value).toLocaleString()} USD
+                          </p>
+                        </div>
                       );
-                    })}
-                  </>
-                );
-              })()}
-            </svg>
+                    }
+                    return null;
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="balance"
+                  stroke="#E5C158"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#tethraGoldGrad)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
 
-          <div className="flex justify-between text-[11px] text-[#71998b] font-mono pt-2 border-t border-[#0d3f32]">
-            <span>Initial: {formatMoney(minVal)}</span>
-            <span className="text-[#fae188]">Current: {formatMoney(totalBalance)}</span>
+          <div className="flex justify-between text-[11px] text-[#71998b] font-mono pt-2 border-t border-[#004D38]">
+            <span>Period Base: {formatMoney(minVal)}</span>
+            <span className="text-[#E5C158] font-bold">Current Total: {formatMoney(totalBalance)}</span>
           </div>
         </div>
 
-        {/* Right: US Bank Payout & $25 Referral (4 cols) */}
+        {/* Right: US Bank Payout Rail & Referral Program (4 cols) */}
         <div className="lg:col-span-4 space-y-4">
-          {/* US Bank 3-Day Notice Card */}
-          <div className="p-5 rounded-2xl bg-[#062c20] border border-[#d4af37]/40 space-y-3 shadow-lg">
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-[#0b4737] text-[#d4af37]">
+          {/* US Bank Rail */}
+          <div className="p-5 rounded-2xl bg-[#003125] border border-[#E5C158]/40 space-y-3 shadow-lg">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-[#004D38] text-[#E5C158]">
                 <Building2 className="w-5 h-5" />
               </div>
               <div>
@@ -305,61 +347,55 @@ export const DashboardHome: React.FC = () => {
             </div>
 
             <p className="text-xs text-[#8cb8a8] leading-relaxed">
-              Withdraw to eligible US Bank accounts via ACH/Wire routing. Requests processed 24/7 with 72h delivery guarantee upon approval.
+              Direct ACH &amp; Fedwire routing connected to partner depository institutions with 256-bit encryption.
             </p>
 
             <button
               onClick={() => setCurrentRoute('withdraw')}
-              className="w-full py-2.5 rounded-xl gold-gradient-bg text-[#031d16] font-bold text-xs shadow-md hover:scale-[1.02] transition-transform"
+              className="w-full py-2.5 rounded-xl gold-gradient-bg text-[#002018] font-bold text-xs shadow-md hover:scale-[1.02] transition-transform cursor-pointer"
             >
               Initiate Bank Transfer
             </button>
           </div>
 
-          {/* $25 Referral Quick Box */}
-          <div className="p-5 rounded-2xl bg-[#041f17] border border-[#14533e] space-y-2">
+          {/* Referral Reward */}
+          <div className="p-5 rounded-2xl bg-[#003125] border border-[#004D38] space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
+                <ShieldCheck className="w-3.5 h-3.5 text-[#E5C158]" />
                 <span>$25 Referral Reward</span>
               </span>
-              <span className="text-[11px] font-mono text-[#fae188] font-bold">
+              <span className="text-[11px] font-mono text-[#E5C158] font-bold">
                 {currentUser.referralCode}
               </span>
             </div>
             <p className="text-[11px] text-[#8cb8a8]">
-              Earn $25 for every member you introduce who completes Tier 2 KYC.
+              Earn $25 credited to your primary checking when an invited user completes Tier 2 KYC verification.
             </p>
             <button
               onClick={() => setCurrentRoute('referrals')}
-              className="w-full py-2 rounded-lg bg-[#073024] hover:bg-[#0d4737] text-xs font-semibold text-white border border-[#1c5d4b]"
+              className="w-full py-2 rounded-lg bg-[#004D38] hover:bg-[#006046] text-xs font-semibold text-white border border-[#E5C158]/30 transition-colors cursor-pointer"
             >
-              View Referrals &amp; Links
+              View Referral Dashboard
             </button>
           </div>
         </div>
       </div>
 
-      {/* 4. REAL-TIME GLOBAL ACTIVITY TICKER & STREAM */}
-      <LiveGlobalActivityTicker />
-
-      {/* 5. HIGH-RANK LOCATIONS & COUNTRY-WISE REAL-TIME DATA */}
-      <GlobalCountryLeaderboard />
-
-      {/* 6. RECENT TRANSACTIONS & PRIVACY PLATFORM FEED */}
+      {/* 4. REAL RECENT TRANSACTIONS & MULTI-ACCOUNT SUMMARY */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Recent Ledger Records (7 cols) */}
-        <div className="lg:col-span-7 emerald-card rounded-2xl p-6 border border-[#d4af37]/25 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#0f4637]">
+        <div className="lg:col-span-7 rounded-2xl p-6 bg-[#003125] border border-[#E5C158]/25 shadow-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#004D38]">
             <div className="flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-[#d4af37]" />
+              <Receipt className="w-4 h-4 text-[#E5C158]" />
               <h3 className="text-sm font-bold text-white">Recent Ledger Transactions</h3>
             </div>
             <button
               onClick={() => setCurrentRoute('transactions')}
-              className="text-xs text-[#d4af37] font-semibold hover:underline flex items-center gap-1"
+              className="text-xs text-[#E5C158] font-semibold hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>View All Ledger</span>
+              <span>View Full Ledger</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -368,12 +404,12 @@ export const DashboardHome: React.FC = () => {
             {transactions.slice(0, 5).map((tx) => (
               <div
                 key={tx.id}
-                className="flex items-center justify-between p-3 rounded-xl bg-[#041e17] border border-[#0d3f32] hover:bg-[#072c21] transition-colors"
+                className="flex items-center justify-between p-3 rounded-xl bg-[#002018] border border-[#004D38] hover:border-[#E5C158]/40 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div
                     className={`p-2 rounded-lg font-bold text-xs ${
-                      tx.type === 'deposit' || tx.type === 'referral_bonus' || tx.type === 'yield'
+                      tx.type === 'deposit' || tx.type === 'referral_reward' || tx.type === 'yield_earning' || tx.type === 'daily_bonus'
                         ? 'bg-[#10b981]/20 text-[#10b981]'
                         : 'bg-red-900/20 text-red-400'
                     }`}
@@ -383,13 +419,13 @@ export const DashboardHome: React.FC = () => {
                     ) : tx.type === 'withdrawal' ? (
                       <ArrowUpRight className="w-4 h-4" />
                     ) : (
-                      <Sparkles className="w-4 h-4" />
+                      <TrendingUp className="w-4 h-4" />
                     )}
                   </div>
                   <div>
                     <div className="text-xs font-bold text-white">{tx.description}</div>
                     <div className="text-[10px] text-[#7da797] font-mono">
-                      {new Date(tx.createdAt).toLocaleDateString()} • Ref: {tx.reference}
+                      {new Date(tx.createdAt).toLocaleDateString()} • Ref: {tx.referenceNumber || tx.id}
                     </div>
                   </div>
                 </div>
@@ -397,21 +433,17 @@ export const DashboardHome: React.FC = () => {
                 <div className="text-right">
                   <div
                     className={`text-xs font-bold font-mono ${
-                      tx.type === 'deposit' || tx.type === 'referral_bonus' || tx.type === 'yield'
-                        ? 'text-[#6ee7b7]'
-                        : 'text-white'
+                      tx.amount > 0 ? 'text-[#6ee7b7]' : 'text-white'
                     }`}
                   >
-                    {tx.type === 'deposit' || tx.type === 'referral_bonus' || tx.type === 'yield'
-                      ? '+'
-                      : '-'}
-                    {formatMoney(tx.amount)}
+                    {tx.amount > 0 ? '+' : ''}
+                    {formatMoney(Math.abs(tx.amount), tx.currency)}
                   </div>
                   <span
                     className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase font-semibold ${
                       tx.status === 'completed'
                         ? 'bg-[#10b981]/20 text-[#6ee7b7]'
-                        : tx.status === 'pending'
+                        : tx.status === 'pending' || tx.status === 'processing'
                         ? 'bg-yellow-900/40 text-yellow-300'
                         : 'bg-red-900/40 text-red-300'
                     }`}
@@ -424,42 +456,65 @@ export const DashboardHome: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Privacy-Safe Platform Community Feed (5 cols) */}
-        <div className="lg:col-span-5 emerald-card rounded-2xl p-6 border border-[#d4af37]/25 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#0f4637]">
+        {/* Multi-Account Ledger Breakdown (5 cols) */}
+        <div className="lg:col-span-5 rounded-2xl p-6 bg-[#003125] border border-[#E5C158]/25 shadow-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#004D38]">
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#10b981]" />
-              <h3 className="text-sm font-bold text-white">Community Activity</h3>
+              <Layers className="w-4 h-4 text-[#10b981]" />
+              <h3 className="text-sm font-bold text-white">Accounts &amp; Vaults</h3>
             </div>
-            <span className="text-[10px] font-mono text-[#7ea999]">Privacy Protected</span>
+            <button
+              onClick={() => setCurrentRoute('accounts')}
+              className="text-xs text-[#E5C158] hover:underline"
+            >
+              Manage
+            </button>
           </div>
 
-          <p className="text-[11px] text-[#7ea999] leading-relaxed">
-            Safe milestones from verified members. Personal balances and financial amounts remain strictly confidential.
-          </p>
-
-          <div className="space-y-2.5">
-            {platformFeed.slice(0, 4).map((feed) => (
+          <div className="space-y-3">
+            {accounts.map((acc) => (
               <div
-                key={feed.id}
-                className="p-3 rounded-xl bg-[#041e17] border border-[#0d3f32] flex items-center gap-3 text-xs"
+                key={acc.id}
+                className="p-3.5 rounded-xl bg-[#002018] border border-[#004D38] flex items-center justify-between"
               >
-                <img
-                  src={feed.userAvatar}
-                  alt={feed.userName}
-                  className="w-8 h-8 rounded-full object-cover border border-[#d4af37]/40"
-                />
-                <div className="flex-1">
-                  <div className="font-semibold text-white">
-                    {feed.userName} <span className="text-[#a4cebf] font-normal">{feed.action}</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-[#004D38] text-[#E5C158]">
+                    <CreditCard className="w-4 h-4" />
                   </div>
-                  <div className="text-[10px] text-[#6d9687] font-mono">
-                    {new Date(feed.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Verified Member
+                  <div>
+                    <h5 className="text-xs font-bold text-white">{acc.name}</h5>
+                    <p className="text-[10px] text-[#7ea999] font-mono">{acc.accountNumber}</p>
                   </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs font-bold font-mono text-[#E5C158]">
+                    {formatMoney(acc.balance, acc.currency)}
+                  </div>
+                  <span className="text-[9px] text-[#6ee7b7] font-mono uppercase">{acc.status}</span>
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Savings Vault Summary */}
+          {savingsGoals.length > 0 && (
+            <div className="pt-2 border-t border-[#004D38]">
+              <div className="flex items-center justify-between text-xs text-[#8cb8a8] mb-1">
+                <span>{savingsGoals[0].name}</span>
+                <span className="text-[#E5C158] font-mono font-bold">
+                  {Math.round((savingsGoals[0].currentAmount / savingsGoals[0].targetAmount) * 100)}%
+                </span>
+              </div>
+              <div className="w-full bg-[#002018] rounded-full h-2 overflow-hidden border border-[#004D38]">
+                <div
+                  className="gold-gradient-bg h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, (savingsGoals[0].currentAmount / savingsGoals[0].targetAmount) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

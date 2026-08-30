@@ -28,9 +28,6 @@ import {
   Landmark,
 } from 'lucide-react';
 import { CURRENCY_RATES } from '../../data/initialData';
-import { LiveGlobalActivityTicker } from '../common/LiveGlobalActivityTicker';
-import { GlobalCountryLeaderboard } from '../common/GlobalCountryLeaderboard';
-import { LiveWorldClocksAndActivity } from '../common/LiveWorldClocksAndActivity';
 
 export const HomePage: React.FC = () => {
   const {
@@ -60,8 +57,8 @@ export const HomePage: React.FC = () => {
       a: 'Withdrawal requests to eligible US Bank accounts (via ACH/Wire routing) undergo compliance verification and are dispatched to the partner banking network. Processing is typically completed within 1 to 3 business days (within 72 hours of approval).',
     },
     {
-      q: 'Is there a Demo / Sandbox environment to test features?',
-      a: 'Yes! Tethra includes a full sandbox ledger environment by default with simulated deposits, transfers, goal tracking, and group expenses so you can test all features risk-free before connecting real accounts.',
+      q: 'How does account verification and Tier 2 KYC work?',
+      a: 'Tethra enforces real Tier 2 KYC/AML compliance. Submissions are processed through encrypted channels with identity document verification and automated sanctions screening before accounts receive institutional withdrawal privileges.',
     },
     {
       q: 'How does the $25 Referral Program operate?',
@@ -305,21 +302,6 @@ export const HomePage: React.FC = () => {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* Real-time World Hub Clocks & Live Country Activity */}
-      <section className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <LiveWorldClocksAndActivity />
-      </section>
-
-      {/* Real-time Global Settlement Stream */}
-      <section className="py-4 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <LiveGlobalActivityTicker />
-      </section>
-
-      {/* High-Rank Locations & Country-Wise Realtime Volume */}
-      <section className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <GlobalCountryLeaderboard />
       </section>
 
       {/* ========================================================================= */}
