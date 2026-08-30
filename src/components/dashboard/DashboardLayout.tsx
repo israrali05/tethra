@@ -29,6 +29,8 @@ import {
   Database,
   Code2,
   Smartphone,
+  Monitor,
+  Server,
 } from 'lucide-react';
 import { CURRENCY_RATES } from '../../data/initialData';
 import { AppRoute } from '../../types';
@@ -75,7 +77,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { id: 'security', label: 'Security & 2FA', icon: <Lock className="w-4 h-4" /> },
     { id: 'support', label: '24/7 Dedicated Support', icon: <Headphones className="w-4 h-4" /> },
     { id: 'profile', label: 'Profile Settings', icon: <Settings className="w-4 h-4" /> },
-    { id: 'wp-architecture', label: 'WordPress Suite & ZIP', icon: <Globe className="w-4 h-4 text-[#38bdf8]" />, badge: 'WP' },
+    { id: 'backend-console', label: 'Backend API & Console', icon: <Server className="w-4 h-4 text-[#10b981]" />, badge: 'REST API' },
   ];
 
   return (
@@ -105,24 +107,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             <span>Admin Portal</span>
           </button>
 
-          {/* Quick Flutter Architecture Inspector Button */}
+          {/* Full-Stack API Status Badge & Quick Access */}
           <button
-            onClick={() => setCurrentRoute('flutter-architecture')}
-            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#062d22] hover:bg-[#0b4a37] border border-[#10b981]/50 text-[11px] font-mono text-[#10b981] transition-colors"
-            title="Inspect Flutter, GoRouter, Provider & Firebase Architecture"
+            onClick={() => setCurrentRoute('backend-console')}
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#062d22] hover:bg-[#0a4233] border border-[#10b981]/50 text-[11px] font-mono text-[#10b981] transition-all cursor-pointer"
+            title="Open Live Express Backend API Explorer"
           >
-            <Smartphone className="w-3.5 h-3.5 text-[#10b981]" />
-            <span>Flutter App</span>
-          </button>
-
-          {/* Quick WordPress Architecture Inspector Button */}
-          <button
-            onClick={() => setCurrentRoute('wp-architecture')}
-            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0a382c] hover:bg-[#11503f] border border-[#d4af37]/40 text-[11px] font-mono text-[#fae188] transition-colors"
-            title="Inspect WordPress Plugin & Theme Architecture"
-          >
-            <Code2 className="w-3.5 h-3.5 text-[#d4af37]" />
-            <span>WP Stack Spec</span>
+            <span className="w-2 h-2 rounded-full bg-[#10b981] animate-ping" />
+            <span>Node/Express API: 200 OK</span>
           </button>
         </div>
 

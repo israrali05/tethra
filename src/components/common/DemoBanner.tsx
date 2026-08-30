@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { ShieldCheck, Sparkles, UserCheck, RefreshCw, AlertCircle, ChevronDown, Check, Smartphone, FileArchive } from 'lucide-react';
+import { ShieldCheck, Sparkles, UserCheck, RefreshCw, AlertCircle, ChevronDown, Check, Server } from 'lucide-react';
 
 export const DemoBanner: React.FC = () => {
   const {
@@ -25,22 +25,22 @@ export const DemoBanner: React.FC = () => {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#d4af37]/20 border border-[#d4af37]/60 text-[#fced96] font-mono font-semibold tracking-wider text-[11px]">
               <Sparkles className="w-3 h-3 text-[#d4af37] animate-pulse" />
-              DEMO / SANDBOX DATA
+              NODE/EXPRESS REST API ONLINE
             </span>
             <span className="text-[#a4ccc0] hidden sm:inline">
-              Simulated Financial Ledger Active • Investments involve risk • Returns not guaranteed
+              Port 3000 Active • 2.0% 24h Yield Engine • Multi-Currency Ledger
             </span>
           </div>
 
           {/* Right: User Switcher & Demo Tools */}
           <div className="flex items-center gap-2 sm:gap-3">
             <button
-              onClick={() => setCurrentRoute('flutter-architecture')}
+              onClick={() => setCurrentRoute('backend-console')}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#062d22] hover:bg-[#0b4a37] text-[#10b981] border border-[#10b981]/50 font-mono text-[11px] font-bold shadow transition-colors"
-              title="Inspect Full Flutter, GoRouter, Provider & Firebase Suite"
+              title="Inspect Live Express Backend Endpoints & Yield Cron"
             >
-              <Smartphone className="w-3.5 h-3.5 text-[#10b981]" />
-              <span>Flutter App</span>
+              <Server className="w-3.5 h-3.5 text-[#10b981]" />
+              <span>Backend API</span>
             </button>
 
             <button

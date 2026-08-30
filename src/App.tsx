@@ -32,11 +32,10 @@ import { ProfileSettingsView } from './components/dashboard/ProfileSettingsView'
 import { P2PTransferView } from './components/dashboard/P2PTransferView';
 import { GiftsView } from './components/dashboard/GiftsView';
 import { DailyBonusView } from './components/dashboard/DailyBonusView';
+import { BackendConsoleView } from './components/dashboard/BackendConsoleView';
 
-// Admin & WP Architecture Views
+// Admin Views
 import { AdminPortal } from './components/admin/AdminPortal';
-import { WordPressArchitectureView } from './components/admin/WordPressArchitectureView';
-import { FlutterArchitectureView } from './components/admin/FlutterArchitectureView';
 
 const MainRouter: React.FC = () => {
   const { currentRoute, isAuthenticated, toast } = useApp();
@@ -74,38 +73,6 @@ const MainRouter: React.FC = () => {
         <main className="flex-1 flex items-center justify-center">
           <AuthPages />
         </main>
-        <LiveChatWidget />
-        <Toast toast={toast} />
-      </div>
-    );
-  }
-
-  // Standalone WordPress Architecture Blueprint View
-  if (currentRoute === 'wp-architecture') {
-    return (
-      <div className="min-h-screen bg-[#031510] text-[#eafaf4] flex flex-col font-sans selection:bg-[#d4af37] selection:text-[#031d16]">
-        <DemoBanner />
-        <PublicHeader />
-        <main className="flex-1 p-6 lg:p-12">
-          <WordPressArchitectureView />
-        </main>
-        <PublicFooter />
-        <LiveChatWidget />
-        <Toast toast={toast} />
-      </div>
-    );
-  }
-
-  // Standalone Flutter + Firebase Architecture Blueprint View
-  if (currentRoute === 'flutter-architecture') {
-    return (
-      <div className="min-h-screen bg-[#031510] text-[#eafaf4] flex flex-col font-sans selection:bg-[#d4af37] selection:text-[#031d16]">
-        <DemoBanner />
-        <PublicHeader />
-        <main className="flex-1 p-6 lg:p-12">
-          <FlutterArchitectureView />
-        </main>
-        <PublicFooter />
         <LiveChatWidget />
         <Toast toast={toast} />
       </div>
@@ -153,10 +120,10 @@ const MainRouter: React.FC = () => {
         return <SupportView />;
       case 'profile':
         return <ProfileSettingsView />;
+      case 'backend-console':
+        return <BackendConsoleView />;
       case 'admin-dashboard':
         return <AdminPortal />;
-      case 'flutter-architecture':
-        return <FlutterArchitectureView />;
       default:
         return <DashboardHome />;
     }

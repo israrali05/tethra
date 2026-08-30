@@ -18,6 +18,7 @@ import {
   MessageSquare,
   FileArchive,
   Smartphone,
+  Monitor,
 } from 'lucide-react';
 import { CURRENCY_RATES } from '../../data/initialData';
 
@@ -205,28 +206,6 @@ export const PublicHeader: React.FC = () => {
           >
             Contact
           </button>
-
-          <button
-            onClick={() => {
-              setCurrentRoute('flutter-architecture');
-              setMobileMenuOpen(false);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#062d22] border border-[#10b981]/50 text-[#10b981] hover:bg-[#0a3f30] transition-colors text-xs font-mono font-semibold"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-[#10b981]" />
-            <span>Flutter App</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setCurrentRoute('wp-architecture');
-              setMobileMenuOpen(false);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#062d22] border border-[#d4af37]/50 text-[#fae188] hover:bg-[#0a3f30] transition-colors text-xs font-mono font-semibold"
-          >
-            <FileArchive className="w-3.5 h-3.5 text-[#d4af37]" />
-            <span>WordPress ZIP</span>
-          </button>
         </nav>
 
         {/* Header Right Actions */}
@@ -375,17 +354,6 @@ export const PublicHeader: React.FC = () => {
               <MessageSquare className="w-4 h-4 fill-white" />
               <span>Chat on WhatsApp (+1 870-382-9652)</span>
             </a>
-
-            <button
-              onClick={() => {
-                setCurrentRoute('wp-architecture');
-                setMobileMenuOpen(false);
-              }}
-              className="w-full py-2.5 rounded-xl text-center text-xs font-bold bg-[#062d22] border border-[#d4af37]/50 text-[#fae188] flex items-center justify-center gap-2"
-            >
-              <FileArchive className="w-4 h-4 text-[#d4af37]" />
-              <span>Download WordPress ZIP</span>
-            </button>
 
             {!currentUser ? (
               <>

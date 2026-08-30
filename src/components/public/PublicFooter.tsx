@@ -152,13 +152,10 @@ export const PublicFooter: React.FC = () => {
               </li>
               <li>
                 <button
-                  onClick={() => {
-                    setCurrentRoute('wp-architecture');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
+                  onClick={() => navigateTo('how-it-works')}
                   className="text-[#fae188] hover:text-white transition-colors hover:translate-x-1 duration-150 inline-block text-left font-mono font-semibold"
                 >
-                  📦 WordPress ZIP &amp; Live Chat
+                  ⚡ Real-Time Ledger &amp; Yield API
                 </button>
               </li>
             </ul>

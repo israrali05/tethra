@@ -434,8 +434,8 @@ export type AppRoute =
   | 'security'
   | 'support'
   | 'profile'
-  | 'admin-dashboard'
-  | 'wp-architecture';
+  | 'backend-console'
+  | 'admin-dashboard';
 
 export type ExpenseCategory =
   | 'Dining'

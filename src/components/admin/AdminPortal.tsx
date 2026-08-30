@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { ALL_BANK_PRESETS } from '../../data/banksData';
 import { User, FinancialAccount, WithdrawalRequest, ReferralRecord } from '../../types';
-import { WordPressArchitectureView } from './WordPressArchitectureView';
+import { BackendConsoleView } from '../dashboard/BackendConsoleView';
 
 export const AdminPortal: React.FC = () => {
   const {
@@ -71,7 +71,7 @@ export const AdminPortal: React.FC = () => {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
-    'withdrawals' | 'users' | 'bonuses' | 'kyc' | 'rates' | 'logs' | 'wordpress'
+    'withdrawals' | 'users' | 'bonuses' | 'kyc' | 'rates' | 'logs' | 'backend-api'
   >('users');
 
   // Search & Filter States
@@ -392,15 +392,15 @@ export const AdminPortal: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('wordpress')}
+          onClick={() => setActiveTab('backend-api')}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-            activeTab === 'wordpress'
-              ? 'bg-[#093e30] text-white border border-[#38bdf8] shadow-[0_0_15px_rgba(56,189,248,0.3)]'
-              : 'text-[#38bdf8] hover:text-white hover:bg-[#042018] border border-[#38bdf8]/30'
+            activeTab === 'backend-api'
+              ? 'bg-[#093e30] text-white border border-[#10b981] shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+              : 'text-[#10b981] hover:text-white hover:bg-[#042018] border border-[#10b981]/30'
           }`}
         >
-          <Globe className="w-4 h-4 text-[#38bdf8]" />
-          <span>WordPress Suite &amp; 1-Click ZIP</span>
+          <Zap className="w-4 h-4 text-[#10b981]" />
+          <span>Express Backend API &amp; Yield Cron</span>
         </button>
       </div>
 
@@ -1182,11 +1182,11 @@ export const AdminPortal: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 7: WORDPRESS SUITE, NATIVE THEME & 1-CLICK ZIP EXPORT                 */}
+      {/* TAB 7: EXPRESS BACKEND API & 24H 2% COMPOUND YIELD CRON                   */}
       {/* ========================================================================= */}
-      {activeTab === 'wordpress' && (
+      {activeTab === 'backend-api' && (
         <div className="pt-2">
-          <WordPressArchitectureView />
+          <BackendConsoleView />
         </div>
       )}
 

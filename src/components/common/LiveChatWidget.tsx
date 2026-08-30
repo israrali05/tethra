@@ -74,8 +74,8 @@ export const LiveChatWidget: React.FC = () => {
       let responseText = '';
       const lower = query.toLowerCase();
 
-      if (lower.includes('wordpress') || lower.includes('zip') || lower.includes('plugin')) {
-        responseText = `📦 You can download the complete ready-to-deploy WordPress ZIP package with custom REST API, CPTs, and this exact live chat plugin from the WP Architecture Blueprint view. Our team is also standing by on WhatsApp at ${SUPPORT_PHONE}.`;
+      if (lower.includes('api') || lower.includes('backend') || lower.includes('rest')) {
+        responseText = `⚡ The Node.js/Express full-stack banking engine is active on port 3000 with live endpoints for account balances, 2.0% 24-hour yield compounding, P2P ledger transfers, and crypto deposits.`;
       } else if (lower.includes('payout') || lower.includes('withdraw') || lower.includes('bank') || lower.includes('3 day')) {
         responseText = `🏛️ US Bank ACH Payouts are processed within 1–3 business days (within 72 hours of AML/KYC approval). Disbursements are sent with verified ABA routing & zero hidden charges.`;
       } else if (lower.includes('deposit') || lower.includes('crypto') || lower.includes('usdt')) {
@@ -207,10 +207,10 @@ export const LiveChatWidget: React.FC = () => {
           {/* Quick Action Chips */}
           <div className="p-2 bg-[#02100c] border-t border-[#0d3f32] overflow-x-auto flex gap-1.5 scrollbar-none">
             <button
-              onClick={() => handleQuickPrompt('How do I download the complete WordPress ZIP package?')}
+              onClick={() => handleQuickPrompt('How does the automated 2% 24h yield engine work?')}
               className="px-2.5 py-1 rounded-lg bg-[#062920] hover:bg-[#0a3a2c] text-[#d4af37] border border-[#d4af37]/30 text-[11px] whitespace-nowrap transition-colors"
             >
-              📦 WordPress ZIP
+              💰 2.0% Daily Yield
             </button>
             <button
               onClick={() => handleQuickPrompt('Tell me about the US Bank 3-Day Payout process')}
