@@ -29,10 +29,14 @@ import { KYCView } from './components/dashboard/KYCView';
 import { SecurityView } from './components/dashboard/SecurityView';
 import { SupportView } from './components/dashboard/SupportView';
 import { ProfileSettingsView } from './components/dashboard/ProfileSettingsView';
+import { P2PTransferView } from './components/dashboard/P2PTransferView';
+import { GiftsView } from './components/dashboard/GiftsView';
+import { DailyBonusView } from './components/dashboard/DailyBonusView';
 
 // Admin & WP Architecture Views
 import { AdminPortal } from './components/admin/AdminPortal';
 import { WordPressArchitectureView } from './components/admin/WordPressArchitectureView';
+import { FlutterArchitectureView } from './components/admin/FlutterArchitectureView';
 
 const MainRouter: React.FC = () => {
   const { currentRoute, isAuthenticated, toast } = useApp();
@@ -92,6 +96,22 @@ const MainRouter: React.FC = () => {
     );
   }
 
+  // Standalone Flutter + Firebase Architecture Blueprint View
+  if (currentRoute === 'flutter-architecture') {
+    return (
+      <div className="min-h-screen bg-[#031510] text-[#eafaf4] flex flex-col font-sans selection:bg-[#d4af37] selection:text-[#031d16]">
+        <DemoBanner />
+        <PublicHeader />
+        <main className="flex-1 p-6 lg:p-12">
+          <FlutterArchitectureView />
+        </main>
+        <PublicFooter />
+        <LiveChatWidget />
+        <Toast toast={toast} />
+      </div>
+    );
+  }
+
   // Authenticated Dashboard Views
   const renderDashboardContent = () => {
     switch (currentRoute) {
@@ -99,6 +119,12 @@ const MainRouter: React.FC = () => {
         return <DashboardHome />;
       case 'accounts':
         return <AccountsView />;
+      case 'p2p-transfer':
+        return <P2PTransferView />;
+      case 'gifts':
+        return <GiftsView />;
+      case 'daily-bonus':
+        return <DailyBonusView />;
       case 'deposit':
         return <DepositView />;
       case 'withdraw':
@@ -129,6 +155,8 @@ const MainRouter: React.FC = () => {
         return <ProfileSettingsView />;
       case 'admin-dashboard':
         return <AdminPortal />;
+      case 'flutter-architecture':
+        return <FlutterArchitectureView />;
       default:
         return <DashboardHome />;
     }

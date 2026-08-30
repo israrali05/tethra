@@ -21,6 +21,7 @@ import {
   AuditLog,
   SystemConfig,
   SettlementDebt,
+  UserGift,
 } from '../types';
 import {
   INITIAL_CONFIG,
@@ -40,6 +41,8 @@ import {
   INITIAL_SUPPORT_TICKETS,
   INITIAL_KYC_SUBMISSION,
   INITIAL_AUDIT_LOGS,
+  INITIAL_GIFTS,
+  GIFT_PRESETS,
   CURRENCY_RATES,
 } from '../data/initialData';
 
@@ -77,6 +80,18 @@ interface AppContextType {
   createAccount: (name: string, type: FinancialAccount['type'], initialDeposit: number) => FinancialAccount;
   transferFunds: (fromAccountId: string, toAccountId: string, amount: number, description: string) => boolean;
   transferInternal: (fromAccountId: string, toAccountId: string, amount: number | string, description?: string) => boolean;
+  sendP2PFunds: (toUsernameOrId: string, amount: number, note?: string, sourceAccountId?: string) => boolean;
+
+  // Gifts System
+  gifts: UserGift[];
+  giftPresets: typeof GIFT_PRESETS;
+  sendGift: (toUserId: string, giftPresetId: string, customMessage?: string, sourceAccountId?: string) => boolean;
+
+  // 24-Hour 2% Daily Bonus Claim System
+  lastBonusClaimDate: string | null;
+  canClaimDailyBonus: boolean;
+  timeUntilNextBonus: string;
+  claimDailyBonus: () => boolean;
 
   // Transactions & Ledger
   transactions: Transaction[];
@@ -102,6 +117,7 @@ interface AppContextType {
   adminRejectBonus: (referralId: string, reason: string) => void;
   adminIssueCustomBonus: (userId: string, amount: number, bonusType: string, reason: string) => void;
   adminBatchApproveBonuses: () => void;
+  adminDistributeDailyBonusToAllUsers: (percentage?: number) => { totalUsersRewarded: number; totalDistributedUSD: number };
   adminToggleAccountStatus: (accountId: string) => void;
   adminUpdateUserKYC: (userId: string, status: 'not_started' | 'pending' | 'verified' | 'rejected') => void;
   adminDeleteUser: (userId: string) => void;
@@ -315,6 +331,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
 
+  const [gifts, setGifts] = useState<UserGift[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY}_gifts`);
+    return saved ? JSON.parse(saved) : INITIAL_GIFTS;
+  });
+
+  const [lastBonusClaimDate, setLastBonusClaimDate] = useState<string | null>(() => {
+    return localStorage.getItem(`${STORAGE_KEY}_last_bonus_claim_${currentUser?.id || 'guest'}`);
+  });
+
   const [activeToast, setActiveToast] = useState<{
     title: string;
     message: string;
@@ -346,6 +371,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(`${STORAGE_KEY}_support`, JSON.stringify(supportTickets));
       localStorage.setItem(`${STORAGE_KEY}_kyc`, JSON.stringify(kycSubmissions));
       localStorage.setItem(`${STORAGE_KEY}_audit`, JSON.stringify(auditLogs));
+      localStorage.setItem(`${STORAGE_KEY}_gifts`, JSON.stringify(gifts));
     } catch (e) {
       console.warn('Failed to save to localStorage', e);
     }
@@ -370,6 +396,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     supportTickets,
     kycSubmissions,
     auditLogs,
+    gifts,
   ]);
 
   // Live Crypto Price Jitter (Simulating real-time WebSocket tick updates without breaking state)
@@ -705,6 +732,385 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions((prev) => [tx, ...prev]);
     addAuditLog('FUNDS_TRANSFERRED', 'financial', `Transferred $${amount} from ${fromAcc.name} to ${toAcc.name} (Ref: ${refNum})`);
     showToast('Transfer Successful', `Transferred ${formatMoney(amount)} to ${toAcc.name}`);
+    return true;
+  };
+
+  // P2P Money Transfer (User to User)
+  const sendP2PFunds = (toUsernameOrId: string, amount: number, note: string = '', sourceAccountId?: string): boolean => {
+    if (!currentUser) return false;
+    if (amount <= 0) {
+      showToast('Invalid Amount', 'Transfer amount must be greater than 0.', 'error');
+      return false;
+    }
+
+    const cleanQuery = toUsernameOrId.trim().toLowerCase();
+    const recipient = users.find(
+      (u) =>
+        u.id.toLowerCase() === cleanQuery ||
+        u.username.toLowerCase() === cleanQuery ||
+        u.email.toLowerCase() === cleanQuery ||
+        u.uniqueUserId.toLowerCase() === cleanQuery
+    );
+
+    if (!recipient) {
+      showToast('Recipient Not Found', 'Could not locate any member with that username or ID.', 'error');
+      return false;
+    }
+
+    if (recipient.id === currentUser.id) {
+      showToast('Invalid Transfer', 'Cannot perform peer-to-peer transfer to your own account. Use internal transfer instead.', 'warning');
+      return false;
+    }
+
+    // Find sender source account
+    const senderAccount = sourceAccountId
+      ? accounts.find((a) => a.id === sourceAccountId && a.userId === currentUser.id)
+      : accounts.find((a) => a.userId === currentUser.id && a.type === 'checking') ||
+        accounts.find((a) => a.userId === currentUser.id && a.balance >= amount);
+
+    if (!senderAccount) {
+      showToast('Account Not Found', 'No active sender account found.', 'error');
+      return false;
+    }
+
+    if (senderAccount.balance < amount) {
+      showToast('Insufficient Balance', `Available balance: ${formatMoney(senderAccount.balance)}. Needed: ${formatMoney(amount)}`, 'error');
+      return false;
+    }
+
+    // Find recipient target account
+    let recipientAccount = accounts.find((a) => a.userId === recipient.id && a.type === 'checking');
+    if (!recipientAccount) {
+      recipientAccount = accounts.find((a) => a.userId === recipient.id);
+    }
+
+    // Debit sender account
+    setAccounts((prev) =>
+      prev.map((acc) => {
+        if (acc.id === senderAccount.id) {
+          return { ...acc, balance: acc.balance - amount, lastActivityAt: new Date().toISOString() };
+        }
+        if (recipientAccount && acc.id === recipientAccount.id) {
+          return { ...acc, balance: acc.balance + amount, lastActivityAt: new Date().toISOString() };
+        }
+        return acc;
+      })
+    );
+
+    const refNum = `THR-P2P-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    // Transaction for sender (Debit)
+    const senderTx: Transaction = {
+      id: `tx_${Date.now()}_send`,
+      referenceNumber: refNum,
+      userId: currentUser.id,
+      accountId: senderAccount.id,
+      accountName: senderAccount.name,
+      type: 'p2p_transfer',
+      amount: amount,
+      currency: 'USD',
+      fee: 0,
+      description: `Sent P2P to @${recipient.username} (${recipient.firstName} ${recipient.lastName})${note ? ` - "${note}"` : ''}`,
+      status: 'completed',
+      recipientAccount: `@${recipient.username}`,
+      senderAccount: senderAccount.name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Transaction for recipient (Credit)
+    const recipientTx: Transaction = {
+      id: `tx_${Date.now()}_recv`,
+      referenceNumber: refNum,
+      userId: recipient.id,
+      accountId: recipientAccount ? recipientAccount.id : `acc_rec_${recipient.id}`,
+      accountName: recipientAccount ? recipientAccount.name : 'Primary Checking',
+      type: 'p2p_transfer',
+      amount: amount,
+      currency: 'USD',
+      fee: 0,
+      description: `Received P2P from @${currentUser.username} (${currentUser.firstName} ${currentUser.lastName})${note ? ` - "${note}"` : ''}`,
+      status: 'completed',
+      recipientAccount: recipientAccount ? recipientAccount.name : 'Primary Checking',
+      senderAccount: `@${currentUser.username}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setTransactions((prev) => [senderTx, recipientTx, ...prev]);
+
+    // Live public activity feed milestone
+    const activityItem: PlatformActivity = {
+      id: `act_${Date.now()}`,
+      userId: currentUser.id,
+      userName: `${currentUser.firstName} ${currentUser.lastName.charAt(0)}.`,
+      userAvatar: currentUser.avatarUrl,
+      actionText: `sent a instant zero-fee P2P transfer to @${recipient.username}`,
+      timestamp: new Date().toISOString(),
+    };
+    setPlatformActivities((prev) => [activityItem, ...prev.slice(0, 24)]);
+
+    // Notification to recipient
+    const notif: AppNotification = {
+      id: `notif_${Date.now()}`,
+      userId: recipient.id,
+      type: 'transaction',
+      title: 'Money Received 💸',
+      message: `You received ${formatMoney(amount)} USD from @${currentUser.username} (${currentUser.firstName} ${currentUser.lastName}).${note ? ` Note: "${note}"` : ''}`,
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+    setNotifications((prev) => [notif, ...prev]);
+
+    addAuditLog('P2P_TRANSFER_SUCCESS', 'financial', `P2P transfer $${amount} from @${currentUser.username} to @${recipient.username} (Ref: ${refNum})`);
+    triggerCelebration();
+    showToast('Money Sent Successfully', `Transferred ${formatMoney(amount)} to @${recipient.username}`);
+    return true;
+  };
+
+  // Gift Sending
+  const sendGift = (toUserId: string, giftPresetId: string, customMessage: string = '', sourceAccountId?: string): boolean => {
+    if (!currentUser) return false;
+    const giftPreset = GIFT_PRESETS.find((g) => g.id === giftPresetId);
+    if (!giftPreset) {
+      showToast('Invalid Gift', 'Selected gift tier is not available.', 'error');
+      return false;
+    }
+
+    const recipient = users.find((u) => u.id === toUserId || u.username.toLowerCase() === toUserId.toLowerCase());
+    if (!recipient) {
+      showToast('User Not Found', 'Could not locate the recipient for this gift.', 'error');
+      return false;
+    }
+
+    if (recipient.id === currentUser.id) {
+      showToast('Cannot Gift Yourself', 'Please select another member to send a gift.', 'warning');
+      return false;
+    }
+
+    const amount = giftPreset.amount;
+    const senderAccount = sourceAccountId
+      ? accounts.find((a) => a.id === sourceAccountId && a.userId === currentUser.id)
+      : accounts.find((a) => a.userId === currentUser.id && a.balance >= amount) ||
+        accounts.find((a) => a.userId === currentUser.id);
+
+    if (!senderAccount || senderAccount.balance < amount) {
+      showToast('Insufficient Balance', `You need at least ${formatMoney(amount)} to send the ${giftPreset.emoji} ${giftPreset.name}.`, 'error');
+      return false;
+    }
+
+    let recipientAccount = accounts.find((a) => a.userId === recipient.id && a.type === 'checking') ||
+      accounts.find((a) => a.userId === recipient.id);
+
+    // Debit sender, credit recipient
+    setAccounts((prev) =>
+      prev.map((acc) => {
+        if (acc.id === senderAccount.id) {
+          return { ...acc, balance: acc.balance - amount, lastActivityAt: new Date().toISOString() };
+        }
+        if (recipientAccount && acc.id === recipientAccount.id) {
+          return { ...acc, balance: acc.balance + amount, lastActivityAt: new Date().toISOString() };
+        }
+        return acc;
+      })
+    );
+
+    const refNum = `THR-GIFT-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const newGift: UserGift = {
+      id: `gift_${Date.now()}`,
+      fromUserId: currentUser.id,
+      fromUserName: `${currentUser.firstName} ${currentUser.lastName}`,
+      fromUserAvatar: currentUser.avatarUrl,
+      toUserId: recipient.id,
+      toUserName: `${recipient.firstName} ${recipient.lastName}`,
+      toUserAvatar: recipient.avatarUrl,
+      giftName: giftPreset.name,
+      giftEmoji: giftPreset.emoji,
+      amount: giftPreset.amount,
+      currency: 'USD',
+      message: customMessage || `Sent you a ${giftPreset.emoji} ${giftPreset.name}!`,
+      createdAt: new Date().toISOString(),
+    };
+
+    setGifts((prev) => [newGift, ...prev]);
+
+    // Ledger for sender
+    const senderTx: Transaction = {
+      id: `tx_${Date.now()}_giftsend`,
+      referenceNumber: refNum,
+      userId: currentUser.id,
+      accountId: senderAccount.id,
+      accountName: senderAccount.name,
+      type: 'gift_sent',
+      amount: amount,
+      currency: 'USD',
+      fee: 0,
+      description: `Sent ${giftPreset.emoji} ${giftPreset.name} ($${amount}) to @${recipient.username}`,
+      status: 'completed',
+      recipientAccount: `@${recipient.username}`,
+      senderAccount: senderAccount.name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Ledger for recipient
+    const recipientTx: Transaction = {
+      id: `tx_${Date.now()}_giftrecv`,
+      referenceNumber: refNum,
+      userId: recipient.id,
+      accountId: recipientAccount ? recipientAccount.id : `acc_${recipient.id}`,
+      accountName: recipientAccount ? recipientAccount.name : 'Checking',
+      type: 'gift_received',
+      amount: amount,
+      currency: 'USD',
+      fee: 0,
+      description: `Received ${giftPreset.emoji} ${giftPreset.name} ($${amount}) from @${currentUser.username}`,
+      status: 'completed',
+      recipientAccount: recipientAccount ? recipientAccount.name : 'Checking',
+      senderAccount: `@${currentUser.username}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setTransactions((prev) => [senderTx, recipientTx, ...prev]);
+
+    // Activity feed item
+    const activityItem: PlatformActivity = {
+      id: `act_${Date.now()}`,
+      userId: currentUser.id,
+      userName: `${currentUser.firstName} ${currentUser.lastName.charAt(0)}.`,
+      userAvatar: currentUser.avatarUrl,
+      actionText: `sent ${giftPreset.emoji} ${giftPreset.name} to @${recipient.username}`,
+      timestamp: new Date().toISOString(),
+    };
+    setPlatformActivities((prev) => [activityItem, ...prev.slice(0, 24)]);
+
+    // Notification to recipient
+    const notif: AppNotification = {
+      id: `notif_${Date.now()}`,
+      userId: recipient.id,
+      type: 'reward',
+      title: `New Gift Received: ${giftPreset.emoji} ${giftPreset.name}`,
+      message: `@${currentUser.username} sent you a ${giftPreset.emoji} ${giftPreset.name} worth ${formatMoney(amount)}! "${customMessage || 'Enjoy your gift!'}"`,
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+    setNotifications((prev) => [notif, ...prev]);
+
+    addAuditLog('GIFT_SENT', 'financial', `Gift ${giftPreset.name} ($${amount}) sent from @${currentUser.username} to @${recipient.username}`);
+    triggerCelebration();
+    showToast('Gift Sent! 🎁', `Successfully delivered ${giftPreset.emoji} ${giftPreset.name} to @${recipient.username}`);
+    return true;
+  };
+
+  // 2% 24h Daily Bonus Claiming Engine
+  const totalUserBalance = accounts
+    .filter((a) => a.userId === currentUser?.id)
+    .reduce((sum, a) => sum + a.balance, 0);
+
+  const calculateCanClaimBonus = () => {
+    if (!currentUser) return false;
+    if (!lastBonusClaimDate) return true; // never claimed yet
+    const lastClaim = new Date(lastBonusClaimDate).getTime();
+    const now = Date.now();
+    const hoursElapsed = (now - lastClaim) / (1000 * 60 * 60);
+    return hoursElapsed >= 24;
+  };
+
+  const canClaimDailyBonus = calculateCanClaimBonus();
+
+  const getTimeUntilNextBonus = (): string => {
+    if (!lastBonusClaimDate || canClaimDailyBonus) return 'Ready to claim now!';
+    const nextClaimTime = new Date(lastBonusClaimDate).getTime() + 24 * 60 * 60 * 1000;
+    const diffMs = nextClaimTime - Date.now();
+    if (diffMs <= 0) return 'Ready to claim now!';
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diffMs % (1000 * 60)) / 1000);
+    return `${hours}h ${mins}m ${secs}s`;
+  };
+
+  const timeUntilNextBonus = getTimeUntilNextBonus();
+
+  const claimDailyBonus = (): boolean => {
+    if (!currentUser) return false;
+    if (!canClaimDailyBonus) {
+      showToast('Bonus In Cooldown', `Next 2% 24-hour bonus available in ${timeUntilNextBonus}.`, 'warning');
+      return false;
+    }
+
+    // Minimum baseline calculation: 2% of total portfolio balance, or at least $10 baseline if new account
+    const bonusBase = totalUserBalance > 0 ? totalUserBalance : 500;
+    const bonusAmount = Number((bonusBase * 0.02).toFixed(2));
+
+    // Credit to savings vault or primary checking
+    let targetAcc = accounts.find((a) => a.userId === currentUser.id && a.type === 'savings') ||
+      accounts.find((a) => a.userId === currentUser.id && a.type === 'checking') ||
+      accounts.find((a) => a.userId === currentUser.id);
+
+    if (!targetAcc) {
+      showToast('Error', 'No account found to credit bonus.', 'error');
+      return false;
+    }
+
+    setAccounts((prev) =>
+      prev.map((acc) =>
+        acc.id === targetAcc.id
+          ? { ...acc, balance: acc.balance + bonusAmount, lastActivityAt: new Date().toISOString() }
+          : acc
+      )
+    );
+
+    const nowIso = new Date().toISOString();
+    setLastBonusClaimDate(nowIso);
+    localStorage.setItem(`${STORAGE_KEY}_last_bonus_claim_${currentUser.id}`, nowIso);
+
+    const refNum = `THR-YIELD-${Math.floor(100000 + Math.random() * 900000)}`;
+    const tx: Transaction = {
+      id: `tx_${Date.now()}_bonus`,
+      referenceNumber: refNum,
+      userId: currentUser.id,
+      accountId: targetAcc.id,
+      accountName: targetAcc.name,
+      type: 'daily_bonus',
+      amount: bonusAmount,
+      currency: 'USD',
+      fee: 0,
+      description: `24-Hour 2% Compounding Bonus (2% of ${formatMoney(bonusBase)})`,
+      status: 'completed',
+      recipientAccount: targetAcc.name,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    setTransactions((prev) => [tx, ...prev]);
+
+    // Add to live platform activity feed
+    const activityItem: PlatformActivity = {
+      id: `act_${Date.now()}`,
+      userId: currentUser.id,
+      userName: `${currentUser.firstName} ${currentUser.lastName.charAt(0)}.`,
+      userAvatar: currentUser.avatarUrl,
+      actionText: `collected their 2% 24-hour daily portfolio yield bonus`,
+      timestamp: nowIso,
+    };
+    setPlatformActivities((prev) => [activityItem, ...prev.slice(0, 24)]);
+
+    const notif: AppNotification = {
+      id: `notif_${Date.now()}`,
+      userId: currentUser.id,
+      type: 'reward',
+      title: '2% 24-Hour Bonus Collected! 💵✨',
+      message: `Successfully claimed ${formatMoney(bonusAmount)} (2% on ${formatMoney(bonusBase)}). Next payout unlocks in 24 hours.`,
+      read: false,
+      createdAt: nowIso,
+    };
+    setNotifications((prev) => [notif, ...prev]);
+
+    addAuditLog('DAILY_2PCT_BONUS_CLAIMED', 'financial', `User ${currentUser.email} claimed 2% 24h bonus of $${bonusAmount} (Ref: ${refNum})`);
+    triggerCelebration();
+    showToast('Bonus Collected! 💵', `Added ${formatMoney(bonusAmount)} (2% daily bonus) to ${targetAcc.name}!`);
     return true;
   };
 
@@ -1262,6 +1668,113 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     showToast('Batch Bonuses Approved', `Approved and credited ${pendingBonuses.length} referral rewards.`);
+  };
+
+  // Executive trigger: Distribute 2% daily bonus earning to EVERY user across the platform
+  const adminDistributeDailyBonusToAllUsers = (percentage: number = 2.0) => {
+    const rateMultiplier = (percentage || 2.0) / 100;
+    const nowIso = new Date().toISOString();
+    let rewardedCount = 0;
+    let totalDistributed = 0;
+    const newTransactions: Transaction[] = [];
+    const newNotifications: AppNotification[] = [];
+
+    // Map updated accounts
+    setAccounts((prevAccounts) => {
+      const updatedAccounts = [...prevAccounts];
+
+      users.forEach((u) => {
+        const userAccs = updatedAccounts.filter((a) => a.userId === u.id);
+        const userTotalBalance = userAccs.reduce((sum, a) => sum + (a.balance || 0), 0);
+        const bonusBase = userTotalBalance > 0 ? userTotalBalance : 500;
+        const bonusAmount = Number((bonusBase * rateMultiplier).toFixed(2));
+
+        // Find primary target account (savings vault preferred, then checking)
+        let targetAccIndex = updatedAccounts.findIndex((a) => a.userId === u.id && a.type === 'savings');
+        if (targetAccIndex === -1) {
+          targetAccIndex = updatedAccounts.findIndex((a) => a.userId === u.id && a.type === 'checking');
+        }
+        if (targetAccIndex === -1) {
+          targetAccIndex = updatedAccounts.findIndex((a) => a.userId === u.id);
+        }
+
+        if (targetAccIndex !== -1 && bonusAmount > 0) {
+          const targetAcc = updatedAccounts[targetAccIndex];
+          updatedAccounts[targetAccIndex] = {
+            ...targetAcc,
+            balance: targetAcc.balance + bonusAmount,
+            lastActivityAt: nowIso,
+          };
+
+          rewardedCount += 1;
+          totalDistributed += bonusAmount;
+
+          const refNum = `THR-ADM-2PCT-${Math.floor(100000 + Math.random() * 900000)}`;
+          const tx: Transaction = {
+            id: `tx_${Date.now()}_admbn_${u.id}`,
+            referenceNumber: refNum,
+            userId: u.id,
+            accountId: targetAcc.id,
+            accountName: targetAcc.name,
+            type: 'daily_bonus',
+            amount: bonusAmount,
+            currency: 'USD',
+            fee: 0,
+            description: `[ADMIN EXEC] Global ${percentage}% Daily Yield Bonus Distribution (on ${formatMoney(bonusBase)})`,
+            status: 'completed',
+            recipientAccount: targetAcc.name,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+          };
+          newTransactions.push(tx);
+
+          const notif: AppNotification = {
+            id: `notif_${Date.now()}_admbn_${u.id}`,
+            userId: u.id,
+            type: 'reward',
+            title: `Global ${percentage}% Daily Bonus Credited! 💵✨`,
+            message: `Executive Yield Distribution: +${formatMoney(bonusAmount)} USD (${percentage}% earning on your ${formatMoney(bonusBase)} portfolio) credited to ${targetAcc.name}.`,
+            read: false,
+            createdAt: nowIso,
+          };
+          newNotifications.push(notif);
+        }
+      });
+
+      return updatedAccounts;
+    });
+
+    if (newTransactions.length > 0) {
+      setTransactions((prev) => [...newTransactions, ...prev]);
+    }
+    if (newNotifications.length > 0) {
+      setNotifications((prev) => [...newNotifications, ...prev]);
+    }
+
+    // Activity feed
+    const activityItem: PlatformActivity = {
+      id: `act_${Date.now()}_global_bonus`,
+      userId: currentUser?.id || 'admin',
+      userName: 'Administration',
+      userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
+      actionText: `dispatched global ${percentage}% daily yield bonus to all ${rewardedCount} active members`,
+      timestamp: nowIso,
+    };
+    setPlatformActivities((prev) => [activityItem, ...prev.slice(0, 24)]);
+
+    addAuditLog(
+      'ADMIN_GLOBAL_DAILY_BONUS_DISPATCHED',
+      'financial',
+      `Admin distributed ${percentage}% daily bonus across ${rewardedCount} members. Total USD credited: $${totalDistributed.toFixed(2)}`
+    );
+
+    triggerCelebration();
+    showToast(
+      'Global 2% Bonus Dispatched',
+      `Credited ${formatMoney(totalDistributed)} across all ${rewardedCount} user accounts!`
+    );
+
+    return { totalUsersRewarded: rewardedCount, totalDistributedUSD: totalDistributed };
   };
 
   const adminToggleAccountStatus = (accountId: string) => {
@@ -1942,6 +2455,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         transferFunds,
         transferInternal: (fromId: string, toId: string, amt: number | string, desc?: string) =>
           transferFunds(fromId, toId, Number(amt), desc || 'Internal Transfer'),
+        sendP2PFunds,
+        gifts,
+        giftPresets: GIFT_PRESETS,
+        sendGift,
+        lastBonusClaimDate,
+        canClaimDailyBonus,
+        timeUntilNextBonus,
+        claimDailyBonus,
         transactions,
         exportTransactionsCSV,
         deposits,
@@ -1961,6 +2482,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         adminRejectBonus,
         adminIssueCustomBonus,
         adminBatchApproveBonuses,
+        adminDistributeDailyBonusToAllUsers,
         adminToggleAccountStatus,
         adminUpdateUserKYC,
         adminDeleteUser,

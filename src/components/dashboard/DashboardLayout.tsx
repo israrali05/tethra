@@ -28,6 +28,7 @@ import {
   Sparkles,
   Database,
   Code2,
+  Smartphone,
 } from 'lucide-react';
 import { CURRENCY_RATES } from '../../data/initialData';
 import { AppRoute } from '../../types';
@@ -57,6 +58,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const navItems: { id: AppRoute; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'dashboard', label: 'Dashboard Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'accounts', label: 'My Accounts & Ledger', icon: <CreditCard className="w-4 h-4" /> },
+    { id: 'p2p-transfer', label: 'Send & Receive (P2P)', icon: <ArrowUpRight className="w-4 h-4 text-[#10b981]" />, badge: 'Instant' },
+    { id: 'gifts', label: 'Gifts & Dollars', icon: <Sparkles className="w-4 h-4 text-[#fae188]" />, badge: 'Gifts' },
+    { id: 'daily-bonus', label: '2% 24h Daily Bonus', icon: <TrendingUp className="w-4 h-4 text-[#d4af37]" />, badge: '+2%' },
     { id: 'deposit', label: 'Deposit Funds', icon: <ArrowDownLeft className="w-4 h-4 text-[#10b981]" /> },
     { id: 'withdraw', label: 'Withdraw (US Bank)', icon: <ArrowUpRight className="w-4 h-4 text-[#d4af37]" /> },
     { id: 'transactions', label: 'Transaction History', icon: <Receipt className="w-4 h-4" /> },
@@ -66,11 +70,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { id: 'groups', label: 'Shared Groups', icon: <Users className="w-4 h-4" /> },
     { id: 'crypto', label: 'Crypto Markets', icon: <Coins className="w-4 h-4" /> },
     { id: 'referrals', label: '$25 Referral Program', icon: <Sparkles className="w-4 h-4 text-[#fae188]" />, badge: '$25' },
-    { id: 'connections', label: 'Find People', icon: <UserPlus className="w-4 h-4" /> },
+    { id: 'connections', label: 'Find People & Profiles', icon: <UserPlus className="w-4 h-4" /> },
     { id: 'kyc', label: 'Identity & KYC', icon: <ShieldCheck className="w-4 h-4" /> },
     { id: 'security', label: 'Security & 2FA', icon: <Lock className="w-4 h-4" /> },
     { id: 'support', label: '24/7 Dedicated Support', icon: <Headphones className="w-4 h-4" /> },
     { id: 'profile', label: 'Profile Settings', icon: <Settings className="w-4 h-4" /> },
+    { id: 'wp-architecture', label: 'WordPress Suite & ZIP', icon: <Globe className="w-4 h-4 text-[#38bdf8]" />, badge: 'WP' },
   ];
 
   return (
@@ -88,6 +93,26 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
           <button onClick={() => setCurrentRoute('home')} className="focus:outline-none text-left">
             <TethraLogo size="sm" showSubtext={false} />
+          </button>
+
+          {/* Quick Admin Portal Direct Access Button */}
+          <button
+            onClick={() => setCurrentRoute('admin-dashboard')}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-red-950/80 via-purple-950/90 to-red-950/80 hover:from-red-900/90 hover:to-purple-900/90 border border-[#d4af37]/60 text-xs font-mono text-[#fae188] shadow-md transition-all font-bold"
+            title="Open Full Executive Admin Control Center"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-[#d4af37] animate-pulse" />
+            <span>Admin Portal</span>
+          </button>
+
+          {/* Quick Flutter Architecture Inspector Button */}
+          <button
+            onClick={() => setCurrentRoute('flutter-architecture')}
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#062d22] hover:bg-[#0b4a37] border border-[#10b981]/50 text-[11px] font-mono text-[#10b981] transition-colors"
+            title="Inspect Flutter, GoRouter, Provider & Firebase Architecture"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-[#10b981]" />
+            <span>Flutter App</span>
           </button>
 
           {/* Quick WordPress Architecture Inspector Button */}

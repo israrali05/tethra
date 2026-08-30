@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { ShieldCheck, Sparkles, UserCheck, RefreshCw, AlertCircle, ChevronDown, Check } from 'lucide-react';
+import { ShieldCheck, Sparkles, UserCheck, RefreshCw, AlertCircle, ChevronDown, Check, Smartphone, FileArchive } from 'lucide-react';
 
 export const DemoBanner: React.FC = () => {
   const {
@@ -33,7 +33,25 @@ export const DemoBanner: React.FC = () => {
           </div>
 
           {/* Right: User Switcher & Demo Tools */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setCurrentRoute('flutter-architecture')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#062d22] hover:bg-[#0b4a37] text-[#10b981] border border-[#10b981]/50 font-mono text-[11px] font-bold shadow transition-colors"
+              title="Inspect Full Flutter, GoRouter, Provider & Firebase Suite"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-[#10b981]" />
+              <span>Flutter App</span>
+            </button>
+
+            <button
+              onClick={() => setCurrentRoute('admin-dashboard')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-red-950/90 to-purple-950/90 hover:from-red-900 hover:to-purple-900 text-[#fae188] border border-[#d4af37]/60 font-mono text-[11px] font-bold shadow transition-colors"
+              title="Jump directly into Full Executive Admin Control Portal"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#d4af37]" />
+              <span>Admin Control</span>
+            </button>
+
             {currentUser && (
               <button
                 onClick={() => setShowSwitchModal(true)}

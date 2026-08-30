@@ -26,6 +26,10 @@ import {
 } from 'lucide-react';
 import { LiveGlobalActivityTicker } from '../common/LiveGlobalActivityTicker';
 import { GlobalCountryLeaderboard } from '../common/GlobalCountryLeaderboard';
+import { LiveWorldClocksAndActivity } from '../common/LiveWorldClocksAndActivity';
+import { InviteFriendsModal } from './InviteFriendsModal';
+import { AccountCertificateModal } from './AccountCertificateModal';
+import { Award, Share2 } from 'lucide-react';
 
 export const DashboardHome: React.FC = () => {
   const {
@@ -39,6 +43,8 @@ export const DashboardHome: React.FC = () => {
   } = useApp();
 
   const [timeRange, setTimeRange] = useState<'7D' | '1M' | '3M' | '1Y'>('1M');
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showCertModal, setShowCertModal] = useState(false);
 
   if (!currentUser) return null;
 
@@ -87,16 +93,40 @@ export const DashboardHome: React.FC = () => {
         {/* Quick Action Pill Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => setCurrentRoute('crypto')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#062c20] hover:bg-[#093e30] text-[#fae188] border border-[#d4af37]/40 text-xs font-bold transition-all shadow"
+            onClick={() => setShowInviteModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#083a2d] hover:bg-[#0e4e3e] text-[#fae188] border border-[#d4af37]/50 text-xs font-extrabold transition-all shadow"
           >
-            <Activity className="w-3.5 h-3.5 text-[#10b981]" />
-            <span>Live Markets &amp; Crypto</span>
+            <Share2 className="w-3.5 h-3.5 text-[#d4af37]" />
+            <span>Invite Friends ($25)</span>
+          </button>
+
+          <button
+            onClick={() => setShowCertModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#05271e] hover:bg-[#0a392d] text-[#6ee7b7] border border-[#10b981]/50 text-xs font-bold transition-all shadow"
+          >
+            <Award className="w-3.5 h-3.5 text-[#fae188]" />
+            <span>PDF Certificate</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentRoute('p2p-transfer')}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0b4737] hover:bg-[#12644f] text-white border border-[#227f67] text-xs font-bold transition-all shadow"
+          >
+            <ArrowUpRight className="w-3.5 h-3.5 text-[#10b981]" />
+            <span>Send Money (P2P)</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentRoute('daily-bonus')}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#0d4738] to-[#04241b] hover:border-[#d4af37] text-[#6ee7b7] border border-[#10b981]/50 text-xs font-bold transition-all shadow"
+          >
+            <Zap className="w-3.5 h-3.5 text-[#d4af37]" />
+            <span>2% Daily Bonus</span>
           </button>
 
           <button
             onClick={() => setCurrentRoute('deposit')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0b4737] hover:bg-[#12644f] text-white border border-[#227f67] text-xs font-bold transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#072a1f] hover:bg-[#0d4030] text-white border border-[#144f3d] text-xs font-bold transition-all"
           >
             <ArrowDownLeft className="w-3.5 h-3.5 text-[#10b981]" />
             <span>Deposit</span>
@@ -107,10 +137,13 @@ export const DashboardHome: React.FC = () => {
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl gold-gradient-bg text-[#031d16] text-xs font-bold shadow-[0_0_15px_rgba(212,175,55,0.25)] hover:scale-105 transition-all"
           >
             <Building2 className="w-3.5 h-3.5" />
-            <span>Withdraw (US Bank)</span>
+            <span>Withdraw</span>
           </button>
         </div>
       </div>
+
+      {/* 1B. LIVE WORLD SETTLEMENT CLOCKS & ANIMATED MEMBER ACTIVITY */}
+      <LiveWorldClocksAndActivity />
 
       {/* 2. KPI CARDS GRID */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -429,6 +462,17 @@ export const DashboardHome: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <InviteFriendsModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+      />
+
+      <AccountCertificateModal
+        isOpen={showCertModal}
+        onClose={() => setShowCertModal(false)}
+      />
     </div>
   );
 };

@@ -17,6 +17,7 @@ import {
   Lock,
   MessageSquare,
   FileArchive,
+  Smartphone,
 } from 'lucide-react';
 import { CURRENCY_RATES } from '../../data/initialData';
 
@@ -203,6 +204,17 @@ export const PublicHeader: React.FC = () => {
             }`}
           >
             Contact
+          </button>
+
+          <button
+            onClick={() => {
+              setCurrentRoute('flutter-architecture');
+              setMobileMenuOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#062d22] border border-[#10b981]/50 text-[#10b981] hover:bg-[#0a3f30] transition-colors text-xs font-mono font-semibold"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-[#10b981]" />
+            <span>Flutter App</span>
           </button>
 
           <button

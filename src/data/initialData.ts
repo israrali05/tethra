@@ -1249,6 +1249,48 @@ export const INITIAL_AUDIT_LOGS: AuditLog[] = [
   },
 ];
 
+export const GIFT_PRESETS = [
+  { id: 'gift_coffee', name: 'Artisan Coffee', emoji: '☕', amount: 5.0, color: 'from-amber-700 to-amber-900', description: 'Buy a friend their morning roast.' },
+  { id: 'gift_burger', name: 'Lunch on Me', emoji: '🍔', amount: 15.0, color: 'from-orange-600 to-red-800', description: 'Treat a friend to an awesome meal.' },
+  { id: 'gift_cocktail', name: 'Celebration Toast', emoji: '🥂', amount: 25.0, color: 'from-yellow-600 to-amber-700', description: 'Raise a glass for an achievement.' },
+  { id: 'gift_crypto', name: 'Crypto Rocket', emoji: '🚀', amount: 50.0, color: 'from-purple-600 to-indigo-900', description: 'Power a friend to the moon with $50.' },
+  { id: 'gift_gold', name: 'Gold Bullion Ingot', emoji: '🏆', amount: 100.0, color: 'from-yellow-400 to-amber-600', description: 'Institutional gold status gift.' },
+  { id: 'gift_diamond', name: 'Imperial Diamond', emoji: '💎', amount: 250.0, color: 'from-cyan-400 to-blue-700', description: 'Elite VIP gift of maximum distinction.' },
+];
+
+export const INITIAL_GIFTS = [
+  {
+    id: 'gift_init_01',
+    fromUserId: 'demo_02',
+    fromUserName: 'Sophia Chen',
+    fromUserAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+    toUserId: 'usr_001',
+    toUserName: 'Alexander Vance',
+    toUserAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+    giftName: 'Celebration Toast',
+    giftEmoji: '🥂',
+    amount: 25.0,
+    currency: 'USD',
+    message: 'Congrats on hitting your Q3 milestones!',
+    createdAt: '2026-02-27T10:15:00Z',
+  },
+  {
+    id: 'gift_init_02',
+    fromUserId: 'demo_01',
+    fromUserName: 'Marcus Sterling',
+    fromUserAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    toUserId: 'usr_001',
+    toUserName: 'Alexander Vance',
+    toUserAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+    giftName: 'Artisan Coffee',
+    giftEmoji: '☕',
+    amount: 5.0,
+    currency: 'USD',
+    message: 'Thanks for the quick expense split yesterday!',
+    createdAt: '2026-02-26T16:40:00Z',
+  },
+];
+
 export const CURRENCY_RATES: Record<string, { symbol: string; rateAgainstUSD: number; name: string }> = {
   USD: { symbol: '$', rateAgainstUSD: 1.0, name: 'US Dollar' },
   EUR: { symbol: '€', rateAgainstUSD: 0.92, name: 'Euro' },

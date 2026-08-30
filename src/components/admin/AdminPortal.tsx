@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { ALL_BANK_PRESETS } from '../../data/banksData';
 import { User, FinancialAccount, WithdrawalRequest, ReferralRecord } from '../../types';
+import { WordPressArchitectureView } from './WordPressArchitectureView';
 
 export const AdminPortal: React.FC = () => {
   const {
@@ -56,6 +57,7 @@ export const AdminPortal: React.FC = () => {
     adminRejectBonus,
     adminIssueCustomBonus,
     adminBatchApproveBonuses,
+    adminDistributeDailyBonusToAllUsers,
     adminToggleAccountStatus,
     adminUpdateUserKYC,
     adminDeleteUser,
@@ -69,7 +71,7 @@ export const AdminPortal: React.FC = () => {
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
-    'withdrawals' | 'users' | 'bonuses' | 'kyc' | 'rates' | 'logs'
+    'withdrawals' | 'users' | 'bonuses' | 'kyc' | 'rates' | 'logs' | 'wordpress'
   >('users');
 
   // Search & Filter States
@@ -99,6 +101,11 @@ export const AdminPortal: React.FC = () => {
   const [rejectWithdrawalId, setRejectWithdrawalId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('Compliance & identity mismatch');
   const [showRejectModal, setShowRejectModal] = useState(false);
+
+  // Global Daily Bonus Modal State
+  const [showGlobalBonusModal, setShowGlobalBonusModal] = useState(false);
+  const [globalBonusPercentage, setGlobalBonusPercentage] = useState<string>('2.0');
+  const [globalBonusExecuting, setGlobalBonusExecuting] = useState(false);
 
   // Rate config form state
   const [savingsRate, setSavingsRate] = useState(
@@ -272,6 +279,15 @@ export const AdminPortal: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={() => setShowGlobalBonusModal(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-extrabold text-xs flex items-center gap-1.5 transition-all shadow hover:scale-105"
+            title="Add 2% daily bonus earning to every active user simultaneously"
+          >
+            <Percent className="w-3.5 h-3.5" />
+            <span>+ 2% Daily Bonus to All Users</span>
+          </button>
+
+          <button
             onClick={() => setShowCustomBonusModal(true)}
             className="px-3 py-1.5 rounded-xl bg-[#031d16] hover:bg-[#073024] border border-[#d4af37]/50 text-[#fae188] font-bold text-xs flex items-center gap-1.5 transition-all shadow"
           >
@@ -373,6 +389,18 @@ export const AdminPortal: React.FC = () => {
         >
           <FileText className="w-4 h-4 text-[#a0c5b9]" />
           <span>Audit Trail ({auditLogs.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('wordpress')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            activeTab === 'wordpress'
+              ? 'bg-[#093e30] text-white border border-[#38bdf8] shadow-[0_0_15px_rgba(56,189,248,0.3)]'
+              : 'text-[#38bdf8] hover:text-white hover:bg-[#042018] border border-[#38bdf8]/30'
+          }`}
+        >
+          <Globe className="w-4 h-4 text-[#38bdf8]" />
+          <span>WordPress Suite &amp; 1-Click ZIP</span>
         </button>
       </div>
 
@@ -631,6 +659,14 @@ export const AdminPortal: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowGlobalBonusModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow transition-all hover:scale-105"
+              >
+                <Percent className="w-4 h-4" />
+                <span>Distribute 2% Daily Bonus to All Users</span>
+              </button>
+
               <button
                 onClick={() => setShowCustomBonusModal(true)}
                 className="px-3.5 py-2 rounded-xl bg-[#031d16] hover:bg-[#073024] text-[#fae188] border border-[#d4af37]/50 text-xs font-bold flex items-center gap-1.5"
@@ -1146,6 +1182,15 @@ export const AdminPortal: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
+      {/* TAB 7: WORDPRESS SUITE, NATIVE THEME & 1-CLICK ZIP EXPORT                 */}
+      {/* ========================================================================= */}
+      {activeTab === 'wordpress' && (
+        <div className="pt-2">
+          <WordPressArchitectureView />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* MODAL: MONEY ADJUSTMENT (ADD / REMOVE MONEY / SET BALANCE)                 */}
       {/* ========================================================================= */}
       {showMoneyModal && selectedUserForMoney && (
@@ -1461,6 +1506,109 @@ export const AdminPortal: React.FC = () => {
                   className="w-1/2 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs shadow transition-all"
                 >
                   Confirm Rejection &amp; Refund
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: GLOBAL DAILY BONUS TO EVERY USER (2% YIELD DISTRIBUTION)           */}
+      {/* ========================================================================= */}
+      {showGlobalBonusModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="emerald-card-highlight w-full max-w-lg rounded-3xl p-6 sm:p-7 border border-[#10b981]/60 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-[#10b981]/20">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#10b981] text-black font-extrabold">
+                  <Percent className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Execute Global Daily Bonus Distribution
+                  </h3>
+                  <p className="text-[11px] text-[#a0c5b9]">
+                    Distribute 2% daily earning bonus simultaneously to all {users.length} registered members
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowGlobalBonusModal(false)}
+                className="text-white/60 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div className="p-4 rounded-2xl bg-[#021811] border border-[#0d4f3b] text-xs space-y-2">
+                <div className="flex justify-between items-center text-white">
+                  <span className="text-[#a0c5b9]">Total Eligible Active Users:</span>
+                  <span className="font-mono font-bold text-[#fae188]">{users.length} Accounts</span>
+                </div>
+                <div className="flex justify-between items-center text-white">
+                  <span className="text-[#a0c5b9]">Total Platform Custody Assets:</span>
+                  <span className="font-mono font-bold text-white">{formatMoney(totalPlatformBalances)}</span>
+                </div>
+                <div className="flex justify-between items-center text-white">
+                  <span className="text-[#a0c5b9]">Estimated 2% Yield Distribution:</span>
+                  <span className="font-mono font-bold text-[#6ee7b7]">
+                    ~{formatMoney(totalPlatformBalances * (parseFloat(globalBonusPercentage) || 2) / 100)}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#a2cbbe] mb-1.5">
+                  Daily Bonus Earning Rate (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    max="100"
+                    value={globalBonusPercentage}
+                    onChange={(e) => setGlobalBonusPercentage(e.target.value)}
+                    className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 pl-4 pr-10 text-sm font-mono font-bold text-white focus:outline-none focus:border-[#10b981]"
+                  />
+                  <span className="absolute right-3.5 top-2.5 text-[#10b981] font-mono font-bold">%</span>
+                </div>
+                <p className="text-[10px] text-[#71998b] mt-1">
+                  Default rate is 2.0% daily earnings calculated against each user's total portfolio balance.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-xs text-amber-200 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  Executing this will credit the 2% daily bonus directly into each user's primary savings vault or checking account, create verifiable ledger records, dispatch in-app notifications, and update live activity logs.
+                </p>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowGlobalBonusModal(false)}
+                  className="w-1/2 py-2.5 rounded-xl bg-[#041f17] text-[#8cb8a8] border border-[#144f3d] font-bold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={globalBonusExecuting}
+                  onClick={() => {
+                    setGlobalBonusExecuting(true);
+                    const rate = parseFloat(globalBonusPercentage) || 2.0;
+                    adminDistributeDailyBonusToAllUsers(rate);
+                    setGlobalBonusExecuting(false);
+                    setShowGlobalBonusModal(false);
+                  }}
+                  className="w-1/2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-display font-extrabold text-xs shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Percent className="w-4 h-4" />
+                  <span>{globalBonusExecuting ? 'Distributing...' : 'Confirm & Distribute to All'}</span>
                 </button>
               </div>
             </div>

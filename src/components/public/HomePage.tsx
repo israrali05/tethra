@@ -30,6 +30,7 @@ import {
 import { CURRENCY_RATES } from '../../data/initialData';
 import { LiveGlobalActivityTicker } from '../common/LiveGlobalActivityTicker';
 import { GlobalCountryLeaderboard } from '../common/GlobalCountryLeaderboard';
+import { LiveWorldClocksAndActivity } from '../common/LiveWorldClocksAndActivity';
 
 export const HomePage: React.FC = () => {
   const {
@@ -306,8 +307,13 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Real-time Global Settlement Stream */}
+      {/* Real-time World Hub Clocks & Live Country Activity */}
       <section className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <LiveWorldClocksAndActivity />
+      </section>
+
+      {/* Real-time Global Settlement Stream */}
+      <section className="py-4 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <LiveGlobalActivityTicker />
       </section>
 

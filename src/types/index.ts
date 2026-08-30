@@ -48,6 +48,10 @@ export type TransactionType =
   | 'deposit'
   | 'withdrawal'
   | 'transfer'
+  | 'p2p_transfer'
+  | 'gift_sent'
+  | 'gift_received'
+  | 'daily_bonus'
   | 'income'
   | 'expense'
   | 'investment'
@@ -375,6 +379,31 @@ export interface SystemConfig {
   lastUpdated: string;
 }
 
+export interface GiftPreset {
+  id: string;
+  name: string;
+  emoji: string;
+  amount: number; // in USD
+  color: string;
+  description: string;
+}
+
+export interface UserGift {
+  id: string;
+  fromUserId: string;
+  fromUserName: string;
+  fromUserAvatar?: string;
+  toUserId: string;
+  toUserName: string;
+  toUserAvatar?: string;
+  giftName: string;
+  giftEmoji: string;
+  amount: number;
+  currency: string;
+  message?: string;
+  createdAt: string;
+}
+
 export type AppRoute =
   | 'home'
   | 'about'
@@ -390,6 +419,9 @@ export type AppRoute =
   | 'accounts'
   | 'deposit'
   | 'withdraw'
+  | 'p2p-transfer'
+  | 'gifts'
+  | 'daily-bonus'
   | 'transactions'
   | 'earnings'
   | 'savings'
