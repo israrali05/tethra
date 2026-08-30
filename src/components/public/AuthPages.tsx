@@ -183,61 +183,10 @@ export const AuthPages: React.FC = () => {
             </p>
           </div>
 
-          {/* Institutional Credentials Card */}
-          <div className="p-4 rounded-2xl bg-[#002018] border border-[#E5C158]/40 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono font-bold text-[#E5C158] flex items-center gap-1.5 uppercase tracking-wider">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#10b981]" />
-                Institutional Access Credentials
-              </span>
-              <span className="text-[10px] text-[#8cb8a8] bg-[#004D38] px-2 py-0.5 rounded-full">Server Active</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginEmail('admin@tethra.net');
-                  setLoginPass('889900');
-                  login('admin@tethra.net', '889900');
-                }}
-                className="p-2.5 rounded-xl bg-[#003125] hover:bg-[#004D38] text-left border border-[#E5C158]/30 transition-all group cursor-pointer flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-[#E5C158] flex items-center gap-1.5">
-                    <span>👑 Master Administrator</span>
-                  </div>
-                  <div className="text-[11px] text-[#a2cbbe] font-mono mt-0.5">
-                    User: <strong className="text-white">admin</strong> | Email: <strong className="text-white">admin@tethra.net</strong> | PIN: <strong className="text-[#E5C158]">889900</strong>
-                  </div>
-                </div>
-                <span className="text-[10px] bg-[#E5C158]/20 text-[#E5C158] font-bold px-2 py-1 rounded-lg group-hover:bg-[#E5C158] group-hover:text-[#002018] transition-colors">
-                  Login Admin →
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginEmail('alexander.vance@tethra.net');
-                  setLoginPass('123456');
-                  login('alexander.vance@tethra.net', '123456');
-                }}
-                className="p-2.5 rounded-xl bg-[#003125] hover:bg-[#004D38] text-left border border-[#004D38] hover:border-[#10b981]/50 transition-all group cursor-pointer flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <span>👤 Standard Client</span>
-                  </div>
-                  <div className="text-[11px] text-[#a2cbbe] font-mono mt-0.5">
-                    User: <strong className="text-white">alexvance</strong> | Email: <strong className="text-white">alexander.vance@tethra.net</strong> | PIN: <strong className="text-[#10b981]">123456</strong>
-                  </div>
-                </div>
-                <span className="text-[10px] bg-[#004D38] text-[#8cb8a8] font-bold px-2 py-1 rounded-lg group-hover:bg-[#10b981] group-hover:text-[#002018] transition-colors">
-                  Login Client →
-                </span>
-              </button>
-            </div>
+          {/* Security Notice */}
+          <div className="flex items-center justify-center gap-2 text-xs text-[#8cb8a8] bg-[#002018] border border-[#004D38] py-2 px-3 rounded-xl">
+            <ShieldCheck className="w-4 h-4 text-[#10b981]" />
+            <span>256-Bit Encrypted Institutional Banking Gateway</span>
           </div>
 
           {!is2FAStage ? (

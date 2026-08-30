@@ -150,14 +150,6 @@ export const PublicFooter: React.FC = () => {
                   Contact &amp; 24/7 Desk
                 </button>
               </li>
-              <li>
-                <button
-                  onClick={() => navigateTo('how-it-works')}
-                  className="text-[#fae188] hover:text-white transition-colors hover:translate-x-1 duration-150 inline-block text-left font-mono font-semibold"
-                >
-                  ⚡ Real-Time Ledger &amp; Yield API
-                </button>
-              </li>
             </ul>
           </div>
 

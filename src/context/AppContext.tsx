@@ -572,14 +572,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) => [...prev, newUser]);
     setCurrentUser(newUser);
 
-    // Create Default Accounts for new user
+    // Create Default Accounts for new user with zero balance
     const checkingAcc: FinancialAccount = {
       id: `acc_${Date.now()}_1`,
       userId: newUser.id,
       name: 'Primary Checking Account',
       type: 'checking',
       currency: 'USD',
-      balance: 1000.0, // Demo welcome balance
+      balance: 0.0,
       accountNumber: `TR-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -592,7 +592,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: 'High-Yield Savings Vault',
       type: 'savings',
       currency: 'USD',
-      balance: 2500.0,
+      balance: 0.0,
       accountNumber: `TR-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
       status: 'active',
       createdAt: new Date().toISOString(),
@@ -622,7 +622,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     addAuditLog('USER_REGISTRATION', 'auth', `New user registered: ${newUser.uniqueUserId} (${newUser.email})`);
-    showToast('Welcome to Tethra', 'Account created successfully with demo starting balance.');
+    showToast('Welcome to Tethra', 'Account created successfully.');
     triggerCelebration();
     setCurrentRoute('dashboard');
     return newUser;
