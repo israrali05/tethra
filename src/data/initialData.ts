@@ -143,58 +143,21 @@ export const INITIAL_ACCOUNTS: FinancialAccount[] = [
     createdAt: '2025-11-15T14:00:00Z',
     lastActivityAt: new Date().toISOString(),
   },
+  {
+    id: 'acc_004',
+    userId: 'usr_001',
+    name: 'Digital Asset Treasury (BTC BEP-20)',
+    type: 'crypto',
+    currency: 'BTC',
+    balance: 0.0,
+    accountNumber: 'TR-8940-2391-4404',
+    status: 'active',
+    createdAt: '2025-11-15T14:00:00Z',
+    lastActivityAt: new Date().toISOString(),
+  },
 ];
 
-export const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx_001',
-    referenceNumber: 'THR-TX-984021',
-    userId: 'usr_001',
-    accountId: 'acc_001',
-    accountName: 'Primary Checking (USD)',
-    type: 'deposit',
-    amount: 10000.0,
-    currency: 'USD',
-    fee: 0.0,
-    description: 'Initial ACH Wire Settlement from Primary Bank',
-    status: 'completed',
-    recipientAccount: 'TR-8940-2391-4401',
-    createdAt: '2026-01-10T10:30:00Z',
-    updatedAt: '2026-01-10T10:30:00Z',
-  },
-  {
-    id: 'tx_002',
-    referenceNumber: 'THR-TX-984022',
-    userId: 'usr_001',
-    accountId: 'acc_002',
-    accountName: 'High-Yield Savings Vault',
-    type: 'savings_deposit',
-    amount: 5000.0,
-    currency: 'USD',
-    fee: 0.0,
-    description: 'Allocation to 5.4% APY Compound Vault',
-    status: 'completed',
-    recipientAccount: 'TR-8940-2391-4402',
-    createdAt: '2026-01-15T14:20:00Z',
-    updatedAt: '2026-01-15T14:20:00Z',
-  },
-  {
-    id: 'tx_003',
-    referenceNumber: 'THR-TX-984023',
-    userId: 'usr_001',
-    accountId: 'acc_003',
-    accountName: 'Digital Asset Treasury',
-    type: 'deposit',
-    amount: 8500.0,
-    currency: 'USDT',
-    fee: 0.0,
-    description: 'USDT TRC-20 Direct On-Chain Deposit',
-    status: 'completed',
-    recipientAccount: 'TR-8940-2391-4403',
-    createdAt: '2026-02-01T09:15:00Z',
-    updatedAt: '2026-02-01T09:15:00Z',
-  },
-];
+export const INITIAL_TRANSACTIONS: Transaction[] = [];
 
 export const INITIAL_SAVINGS_GOALS: SavingsGoal[] = [
   {
@@ -315,8 +278,15 @@ export const INITIAL_CRYPTO_HOLDINGS: CryptoHolding[] = [
     id: 'hold_001',
     userId: 'usr_001',
     assetSymbol: 'USDT',
-    quantity: 8500.0,
+    quantity: 0.0,
     avgBuyPrice: 1.0,
+  },
+  {
+    id: 'hold_002',
+    userId: 'usr_001',
+    assetSymbol: 'BTC',
+    quantity: 0.0,
+    avgBuyPrice: 89450.0,
   },
 ];
 

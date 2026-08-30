@@ -46,11 +46,12 @@ export const DashboardHome: React.FC = () => {
 
   if (!currentUser) return null;
 
-  const totalBalance = accounts.reduce((acc, a) => acc + a.balance, 0);
-  const checkingBalance = accounts.find((a) => a.type === 'checking')?.balance || 0;
-  const savingsBalance = accounts.find((a) => a.type === 'savings')?.balance || 0;
-  const investmentBalance = accounts.find((a) => a.type === 'investment')?.balance || 0;
-  const cryptoBalance = accounts.find((a) => a.type === 'crypto')?.balance || 0;
+  const userAccounts = accounts.filter((a) => a.userId === currentUser.id);
+  const totalBalance = userAccounts.reduce((acc, a) => acc + a.balance, 0);
+  const checkingBalance = userAccounts.find((a) => a.type === 'checking')?.balance || 0;
+  const savingsBalance = userAccounts.find((a) => a.type === 'savings')?.balance || 0;
+  const investmentBalance = userAccounts.find((a) => a.type === 'investment')?.balance || 0;
+  const cryptoBalance = userAccounts.find((a) => a.type === 'crypto')?.balance || 0;
 
   // Dynamic Portfolio Growth Chart calculated strictly from real user transaction history & balance timestamps
   const chartData = useMemo(() => {
@@ -401,58 +402,67 @@ export const DashboardHome: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            {transactions.slice(0, 5).map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between p-3 rounded-xl bg-[#002018] border border-[#004D38] hover:border-[#E5C158]/40 transition-colors"
-              >
-                <div className="flex items-center gap-3">
+            {transactions.filter((t) => t.userId === currentUser.id).length === 0 ? (
+              <div className="p-6 rounded-xl bg-[#002018] border border-[#004D38] text-center text-xs text-[#8cb8a8]">
+                No recent transactions. Your account ledger is clean with $0.00 baseline.
+              </div>
+            ) : (
+              transactions
+                .filter((t) => t.userId === currentUser.id)
+                .slice(0, 5)
+                .map((tx) => (
                   <div
-                    className={`p-2 rounded-lg font-bold text-xs ${
-                      tx.type === 'deposit' || tx.type === 'referral_reward' || tx.type === 'yield_earning' || tx.type === 'daily_bonus'
-                        ? 'bg-[#10b981]/20 text-[#10b981]'
-                        : 'bg-red-900/20 text-red-400'
-                    }`}
+                    key={tx.id}
+                    className="flex items-center justify-between p-3 rounded-xl bg-[#002018] border border-[#004D38] hover:border-[#E5C158]/40 transition-colors"
                   >
-                    {tx.type === 'deposit' ? (
-                      <ArrowDownLeft className="w-4 h-4" />
-                    ) : tx.type === 'withdrawal' ? (
-                      <ArrowUpRight className="w-4 h-4" />
-                    ) : (
-                      <TrendingUp className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">{tx.description}</div>
-                    <div className="text-[10px] text-[#7da797] font-mono">
-                      {new Date(tx.createdAt).toLocaleDateString()} • Ref: {tx.referenceNumber || tx.id}
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`p-2 rounded-lg font-bold text-xs ${
+                          tx.type === 'deposit' || tx.type === 'referral_reward' || tx.type === 'yield_earning' || tx.type === 'daily_bonus'
+                            ? 'bg-[#10b981]/20 text-[#10b981]'
+                            : 'bg-red-900/20 text-red-400'
+                        }`}
+                      >
+                        {tx.type === 'deposit' ? (
+                          <ArrowDownLeft className="w-4 h-4" />
+                        ) : tx.type === 'withdrawal' ? (
+                          <ArrowUpRight className="w-4 h-4" />
+                        ) : (
+                          <TrendingUp className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white">{tx.description}</div>
+                        <div className="text-[10px] text-[#7da797] font-mono">
+                          {new Date(tx.createdAt).toLocaleDateString()} • Ref: {tx.referenceNumber || tx.id}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div
+                        className={`text-xs font-bold font-mono ${
+                          tx.amount > 0 ? 'text-[#6ee7b7]' : 'text-white'
+                        }`}
+                      >
+                        {tx.amount > 0 ? '+' : ''}
+                        {formatMoney(Math.abs(tx.amount), tx.currency)}
+                      </div>
+                      <span
+                        className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase font-semibold ${
+                          tx.status === 'completed'
+                            ? 'bg-[#10b981]/20 text-[#6ee7b7]'
+                            : tx.status === 'pending' || tx.status === 'processing'
+                            ? 'bg-yellow-900/40 text-yellow-300'
+                            : 'bg-red-900/40 text-red-300'
+                        }`}
+                      >
+                        {tx.status}
+                      </span>
                     </div>
                   </div>
-                </div>
-
-                <div className="text-right">
-                  <div
-                    className={`text-xs font-bold font-mono ${
-                      tx.amount > 0 ? 'text-[#6ee7b7]' : 'text-white'
-                    }`}
-                  >
-                    {tx.amount > 0 ? '+' : ''}
-                    {formatMoney(Math.abs(tx.amount), tx.currency)}
-                  </div>
-                  <span
-                    className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase font-semibold ${
-                      tx.status === 'completed'
-                        ? 'bg-[#10b981]/20 text-[#6ee7b7]'
-                        : tx.status === 'pending' || tx.status === 'processing'
-                        ? 'bg-yellow-900/40 text-yellow-300'
-                        : 'bg-red-900/40 text-red-300'
-                    }`}
-                  >
-                    {tx.status}
-                  </span>
-                </div>
-              </div>
-            ))}
+                ))
+            )}
           </div>
         </div>
 
@@ -472,7 +482,7 @@ export const DashboardHome: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {accounts.map((acc) => (
+            {userAccounts.map((acc) => (
               <div
                 key={acc.id}
                 className="p-3.5 rounded-xl bg-[#002018] border border-[#004D38] flex items-center justify-between"

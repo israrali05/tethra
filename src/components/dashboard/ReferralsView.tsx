@@ -18,15 +18,14 @@ import {
   Mail,
   ArrowRight,
   TrendingUp,
+  UserPlus,
 } from 'lucide-react';
 
 export const ReferralsView: React.FC = () => {
-  const { currentUser, referrals, formatMoney, showToast, accounts, requestDeposit } = useApp();
+  const { currentUser, referrals, formatMoney, showToast, users, accounts } = useApp();
 
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [claiming, setClaiming] = useState(false);
-  const [claimedBonus, setClaimedBonus] = useState(false);
 
   if (!currentUser) return null;
 
@@ -56,40 +55,30 @@ export const ReferralsView: React.FC = () => {
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `Join me on Tethra Smart Money & Banking. Use my reference link to claim your $25 welcome bonus and earn 2% 24h Tether yield: ${referralLink}`
+      `Join me on Tethra Smart Money & Banking. Use my reference link: ${referralLink} - When you add $50 or more, unlock $25 cash reward + 2% daily income on USDT & BTC!`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   const handleShareTwitter = () => {
     const text = encodeURIComponent(
-      `Manage your money smarter with @TethraFinance. Sign up with my link and get a $25 bonus + high-yield banking: ${referralLink}`
+      `Manage your money smarter with @TethraFinance. Sign up with my link and get daily 2% income on USDT & BTC + $25 bonus: ${referralLink}`
     );
     window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
   };
 
   const handleShareTelegram = () => {
     const text = encodeURIComponent(
-      `Join Tethra Finance & claim your $25 bonus: ${referralLink}`
+      `Join Tethra Finance & earn 2% daily yield: ${referralLink}`
     );
     window.open(`https://t.me/share/url?url=${referralLink}&text=${text}`, '_blank');
   };
 
-  const handleClaimWelcomeBonus = () => {
-    setClaiming(true);
-    setTimeout(() => {
-      setClaiming(false);
-      setClaimedBonus(true);
-      showToast({
-        title: '$25 Referral Bonus Claimed!',
-        message: '$25.00 USD has been credited directly to your Checking Account.',
-        type: 'success',
-      });
-    }, 900);
-  };
-
-  const totalRewards = (referrals?.filter((r: any) => r.rewardStatus === 'credited')?.reduce((acc: number, r: any) => acc + (r.rewardAmount || 25), 0) || 0) + (claimedBonus ? 25 : 0);
-  const qualifiedCount = referrals?.filter((r: any) => r.isQualified || r.rewardStatus === 'credited')?.length || 3;
+  // Filter referrals where current user is the referrer
+  const myReferrals = referrals?.filter((r) => r.referrerUserId === currentUser.id) || [];
+  const creditedReferrals = myReferrals.filter((r) => r.status === 'credited');
+  const totalRewards = creditedReferrals.reduce((acc, r) => acc + (r.rewardAmount || 25), 0);
+  const qualifiedCount = creditedReferrals.length;
 
   return (
     <div className="space-y-8" id="tethra-referrals-view">
@@ -100,49 +89,43 @@ export const ReferralsView: React.FC = () => {
           <span>$25 REFERENCE BONUS PROGRAM</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-white">
-          Refer Friends &amp; Earn $25 per Verified Member
+          Refer Friends &amp; Earn $25 Cash Bonus
         </h1>
         <p className="text-xs text-[#8cb8a8] mt-1">
-          Share your personal reference link. When your invited connections join and complete Tier 2 KYC verification, receive an instant $25 cash deposit.
+          Share your personal reference link. When your invited friend registers and deposits $50 or more, you immediately receive an instant $25.00 cash bonus!
         </p>
       </div>
 
-      {/* Instant Claim Welcome Bounty Banner */}
-      {!claimedBonus && (
-        <div className="p-5 rounded-3xl bg-gradient-to-r from-[#063b2c] via-[#094c39] to-[#04241b] border-2 border-[#d4af37] shadow-[0_0_25px_rgba(212,175,55,0.25)] flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl gold-gradient-bg flex items-center justify-center text-[#031d16] font-bold text-xl shadow-lg shrink-0">
-              <Gift className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="text-white font-extrabold text-base flex items-center gap-2">
-                <span>Your $25 Initial Sign-Up Reference Bonus is Ready!</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#10b981]/30 text-[#6ee7b7] border border-[#10b981]/50 font-mono">
-                  UNLOCKED
-                </span>
-              </div>
-              <p className="text-xs text-[#a2cbbe] mt-0.5">
-                Click to claim your $25 promotional reference reward into your primary checking ledger.
-              </p>
-            </div>
+      {/* Bonus Rule Highlight Card */}
+      <div className="p-5 rounded-3xl bg-gradient-to-r from-[#063b2c] via-[#094c39] to-[#04241b] border-2 border-[#d4af37] shadow-[0_0_25px_rgba(212,175,55,0.25)] flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl gold-gradient-bg flex items-center justify-center text-[#031d16] font-bold text-xl shadow-lg shrink-0">
+            <Gift className="w-6 h-6" />
           </div>
+          <div>
+            <div className="text-white font-extrabold text-base flex items-center gap-2">
+              <span>Program Rule: Add $50 &rarr; Receive $25 Bonus</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#10b981]/30 text-[#6ee7b7] border border-[#10b981]/50 font-mono">
+                INSTANT CASH
+              </span>
+            </div>
+            <p className="text-xs text-[#a2cbbe] mt-0.5">
+              Whenever a person you invited deposits $50.00 or more in their account, you receive a direct $25.00 cash payment.
+            </p>
+          </div>
+        </div>
 
+        <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={handleClaimWelcomeBonus}
-            disabled={claiming}
-            className="w-full sm:w-auto px-6 py-3 rounded-2xl gold-gradient-bg text-[#031d16] font-extrabold text-xs shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
+            type="button"
+            onClick={handleCopyLink}
+            className="px-5 py-2.5 rounded-xl gold-gradient-bg text-[#031d16] font-extrabold text-xs shadow hover:scale-105 transition-all flex items-center gap-1.5"
           >
-            {claiming ? (
-              <span>Crediting Wallet...</span>
-            ) : (
-              <>
-                <DollarSign className="w-4 h-4" />
-                <span>Claim $25 Bonus Now</span>
-              </>
-            )}
+            <Copy className="w-3.5 h-3.5" />
+            <span>Copy Invite Link</span>
           </button>
         </div>
-      )}
+      </div>
 
       {/* Share Box Card */}
       <div className="emerald-card-highlight rounded-3xl p-6 sm:p-8 border border-[#d4af37]/50 space-y-6">
@@ -161,6 +144,7 @@ export const ReferralsView: React.FC = () => {
                 className="bg-transparent text-xs font-mono text-white flex-1 focus:outline-none truncate"
               />
               <button
+                type="button"
                 onClick={handleCopyLink}
                 className="px-3.5 py-2 rounded-lg gold-gradient-bg text-[#031d16] font-extrabold text-xs shrink-0 flex items-center gap-1.5 shadow"
               >
@@ -180,6 +164,7 @@ export const ReferralsView: React.FC = () => {
                 {currentUser.referralCode}
               </span>
               <button
+                type="button"
                 onClick={handleCopyCode}
                 className="px-3.5 py-2 rounded-lg bg-[#073024] hover:bg-[#0c4434] text-white border border-[#1a5b4a] font-bold text-xs shrink-0 flex items-center gap-1.5"
               >
@@ -197,6 +182,7 @@ export const ReferralsView: React.FC = () => {
           </span>
           <div className="flex flex-wrap items-center gap-2">
             <button
+              type="button"
               onClick={handleShareWhatsApp}
               className="px-3.5 py-2 rounded-xl bg-[#128c7e]/20 hover:bg-[#128c7e]/40 text-[#25d366] border border-[#128c7e]/40 font-bold text-xs flex items-center gap-1.5 transition-all"
             >
@@ -204,6 +190,7 @@ export const ReferralsView: React.FC = () => {
               <span>WhatsApp</span>
             </button>
             <button
+              type="button"
               onClick={handleShareTelegram}
               className="px-3.5 py-2 rounded-xl bg-[#229ed9]/20 hover:bg-[#229ed9]/40 text-[#38bdf8] border border-[#229ed9]/40 font-bold text-xs flex items-center gap-1.5 transition-all"
             >
@@ -211,6 +198,7 @@ export const ReferralsView: React.FC = () => {
               <span>Telegram</span>
             </button>
             <button
+              type="button"
               onClick={handleShareTwitter}
               className="px-3.5 py-2 rounded-xl bg-[#1da1f2]/20 hover:bg-[#1da1f2]/40 text-sky-400 border border-[#1da1f2]/40 font-bold text-xs flex items-center gap-1.5 transition-all"
             >
@@ -218,6 +206,7 @@ export const ReferralsView: React.FC = () => {
               <span>X (Twitter)</span>
             </button>
             <button
+              type="button"
               onClick={handleCopyLink}
               className="px-3.5 py-2 rounded-xl bg-[#041d16] hover:bg-[#072a20] text-[#eafaf4] border border-[#0d3f32] font-bold text-xs flex items-center gap-1.5 transition-all"
             >
@@ -233,23 +222,23 @@ export const ReferralsView: React.FC = () => {
         <div className="emerald-card rounded-2xl p-5 border border-[#d4af37]/30 space-y-1">
           <div className="text-xs text-[#8cb8a8] font-semibold uppercase">Total Invitations Sent</div>
           <div className="text-3xl font-display font-extrabold text-white">
-            {referrals?.length || 4} Members
+            {myReferrals.length} Members
           </div>
-          <div className="text-[11px] text-[#7da797] font-mono">Registered across 4 countries</div>
+          <div className="text-[11px] text-[#7da797] font-mono">Referred under your unique code</div>
         </div>
 
         <div className="emerald-card rounded-2xl p-5 border border-[#10b981]/40 space-y-1">
-          <div className="text-xs text-[#8cb8a8] font-semibold uppercase">KYC Qualified Referrals</div>
+          <div className="text-xs text-[#8cb8a8] font-semibold uppercase">Qualified Referrals ($50+ Added)</div>
           <div className="text-3xl font-display font-extrabold text-[#6ee7b7]">{qualifiedCount}</div>
-          <div className="text-[11px] text-[#7da797] font-mono">Tier 2 KYC Completed</div>
+          <div className="text-[11px] text-[#7da797] font-mono">Unlocked $25 Bounty Payout</div>
         </div>
 
         <div className="emerald-card rounded-2xl p-5 border border-[#d4af37]/40 space-y-1">
           <div className="text-xs text-[#8cb8a8] font-semibold uppercase">Total Bounty Rewards Earned</div>
           <div className="text-3xl font-display font-extrabold text-[#fae188]">
-            {formatMoney(totalRewards || 75)}
+            {formatMoney(totalRewards)}
           </div>
-          <div className="text-[11px] text-[#7da797] font-mono">Credited to Checking Account</div>
+          <div className="text-[11px] text-[#7da797] font-mono">Credited to Primary Checking</div>
         </div>
       </div>
 
@@ -266,7 +255,7 @@ export const ReferralsView: React.FC = () => {
             </div>
             <h4 className="font-bold text-white">Share Your Reference Link</h4>
             <p className="text-[#8cb8a8]">
-              Send your personal link to colleagues, investors, or friends via WhatsApp, Telegram, or email.
+              Send your personal link or code (<strong className="text-white">{currentUser.referralCode}</strong>) to colleagues, investors, or friends.
             </p>
           </div>
 
@@ -274,9 +263,9 @@ export const ReferralsView: React.FC = () => {
             <div className="w-6 h-6 rounded-full bg-[#10b981] text-black font-extrabold flex items-center justify-center font-mono">
               2
             </div>
-            <h4 className="font-bold text-white">Friend Completes Tier 2 KYC</h4>
+            <h4 className="font-bold text-white">Friend Adds $50 or More</h4>
             <p className="text-[#8cb8a8]">
-              Your referred connection opens their account and completes standard identity verification.
+              Your referred connection opens their account (starting at $0.00 zero balance) and deposits at least $50 via USDT, BTC, or Wire.
             </p>
           </div>
 
@@ -284,9 +273,9 @@ export const ReferralsView: React.FC = () => {
             <div className="w-6 h-6 rounded-full bg-[#38bdf8] text-black font-extrabold flex items-center justify-center font-mono">
               3
             </div>
-            <h4 className="font-bold text-white">Instant $25 Deposit Payout</h4>
+            <h4 className="font-bold text-white">Instant $25.00 Cash Payout</h4>
             <p className="text-[#8cb8a8]">
-              $25 is credited directly into your Checking Account, with zero lock-in or withdrawal fees.
+              $25.00 USD is instantly credited directly into your Checking Account, with zero lock-in or withdrawal fees.
             </p>
           </div>
         </div>
@@ -296,81 +285,58 @@ export const ReferralsView: React.FC = () => {
       <div className="emerald-card rounded-2xl border border-[#d4af37]/25 overflow-hidden">
         <div className="p-4 bg-[#02130e] border-b border-[#0f4637] flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">Referred Community Members &amp; Payout Status</h3>
-          <span className="text-xs font-mono text-[#7ea999]">{referrals?.length || 4} Total</span>
+          <span className="text-xs font-mono text-[#7ea999]">{myReferrals.length} Total</span>
         </div>
 
-        <div className="divide-y divide-[#0c392c]">
-          {[
-            {
-              id: 'ref-1',
-              name: 'Liam Campbell',
-              email: 'liam.c@tethra-demo.ca',
-              country: '🇨🇦 Canada',
-              date: '2026-08-27',
-              reward: 25,
-              status: 'credited',
-            },
-            {
-              id: 'ref-2',
-              name: 'Élodie Laurent',
-              email: 'elodie.l@paris-finance.fr',
-              country: '🇫🇷 France',
-              date: '2026-08-25',
-              reward: 25,
-              status: 'credited',
-            },
-            {
-              id: 'ref-3',
-              name: 'Tariq Al-Mansoor',
-              email: 'tariq@emirates-cap.ae',
-              country: '🇦🇪 UAE',
-              date: '2026-08-20',
-              reward: 25,
-              status: 'credited',
-            },
-            {
-              id: 'ref-4',
-              name: 'Sarah Jenkins',
-              email: 'sarah.j@sydney-invest.com.au',
-              country: '🇦🇺 Australia',
-              date: '2026-08-18',
-              reward: 25,
-              status: 'pending_kyc',
-            },
-          ].map((ref) => (
-            <div
-              key={ref.id}
-              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#062c21] transition-colors"
-            >
-              <div>
-                <div className="font-bold text-white text-sm flex items-center gap-2">
-                  <span>{ref.name}</span>
-                  <span className="text-xs text-[#8cb8a8]">{ref.country}</span>
-                </div>
-                <div className="text-[11px] text-[#8cb8a8] font-mono">
-                  {ref.email} • Joined: {ref.date}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <div className="text-xs font-bold text-[#fae188] font-mono">
-                    +${ref.reward}.00 USD
-                  </div>
-                  <span
-                    className={`text-[9px] px-2 py-0.5 rounded font-mono uppercase font-bold ${
-                      ref.status === 'credited'
-                        ? 'bg-[#10b981]/20 text-[#6ee7b7]'
-                        : 'bg-yellow-900/40 text-yellow-300'
-                    }`}
-                  >
-                    ● {ref.status === 'credited' ? 'Reward Credited' : 'Pending KYC Review'}
-                  </span>
-                </div>
-              </div>
+        {myReferrals.length === 0 ? (
+          <div className="p-8 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#041d16] border border-[#144f3d] flex items-center justify-center text-[#d4af37] mx-auto">
+              <Users className="w-6 h-6" />
             </div>
-          ))}
-        </div>
+            <h4 className="text-sm font-bold text-white">No Referred Members Yet</h4>
+            <p className="text-xs text-[#8cb8a8] max-w-md mx-auto">
+              You haven't referred any members yet. Share your reference link or code (<strong className="text-white">{currentUser.referralCode}</strong>) with friends. When they add $50+, you receive $25 cash!
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[#0c392c]">
+            {myReferrals.map((ref) => (
+              <div
+                key={ref.id}
+                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#062c21] transition-colors"
+              >
+                <div>
+                  <div className="font-bold text-white text-sm flex items-center gap-2">
+                    <span>{ref.referredName || 'Referred Member'}</span>
+                  </div>
+                  <div className="text-[11px] text-[#8cb8a8] font-mono">
+                    {ref.referredEmail} &bull; Joined: {ref.joinedDate}
+                  </div>
+                  <div className="text-[10px] text-[#7ca898] mt-0.5">
+                    {ref.qualificationCriteria || 'Requires $50+ deposit for $25 reward'}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="text-xs font-bold text-[#fae188] font-mono">
+                      +${ref.rewardAmount || 25}.00 USD
+                    </div>
+                    <span
+                      className={`text-[9px] px-2 py-0.5 rounded font-mono uppercase font-bold ${
+                        ref.status === 'credited'
+                          ? 'bg-[#10b981]/20 text-[#6ee7b7]'
+                          : 'bg-yellow-900/40 text-yellow-300'
+                      }`}
+                    >
+                      ● {ref.status === 'credited' ? 'Reward Credited ($25)' : 'Pending $50+ Deposit'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

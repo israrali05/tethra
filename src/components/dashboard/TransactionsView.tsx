@@ -17,40 +17,40 @@ import {
 import { TransactionType } from '../../types';
 
 export const TransactionsView: React.FC = () => {
-  const { transactions, formatMoney, showToast } = useApp();
+  const { currentUser, transactions, formatMoney, showToast } = useApp();
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const filtered = transactions.filter((t) => {
+  // Strictly filter transactions to current user's account ledger
+  const userTransactions = transactions.filter((t) => t.userId === currentUser?.id);
+
+  const filtered = userTransactions.filter((t) => {
+    const ref = t.referenceNumber || t.reference || t.id || '';
     const matchSearch =
       t.description.toLowerCase().includes(search.toLowerCase()) ||
-      t.reference.toLowerCase().includes(search.toLowerCase());
+      ref.toLowerCase().includes(search.toLowerCase());
     const matchType = typeFilter === 'all' || t.type === typeFilter;
     const matchStatus = statusFilter === 'all' || t.status === statusFilter;
     return matchSearch && matchType && matchStatus;
   });
 
   const exportCSV = () => {
-    const headers = 'ID,Date,Type,Description,Amount,Currency,Status,Reference\n';
+    const headers = 'ID,Date,Type,Description,Account,Amount,Currency,Status,Reference\n';
     const rows = filtered
       .map(
         (t) =>
-          `"${t.id}","${t.createdAt}","${t.type}","${t.description}","${t.amount}","${t.currency}","${t.status}","${t.reference}"`
+          `"${t.id}","${t.createdAt}","${t.type}","${t.description.replace(/"/g, '""')}","${t.accountName || ''}","${t.amount}","${t.currency}","${t.status}","${t.referenceNumber || t.reference || t.id}"`
       )
       .join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `tethra-ledger-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `tethra-ledger-${currentUser?.username || 'user'}-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
-    showToast({
-      title: 'CSV Export Generated',
-      message: 'Transaction history downloaded successfully.',
-      type: 'success',
-    });
+    showToast('CSV Export Generated', 'Your personalized account ledger downloaded successfully.');
   };
 
   return (
@@ -134,8 +134,12 @@ export const TransactionsView: React.FC = () => {
             <tbody className="divide-y divide-[#0c392c]">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-[#7ea999]">
-                    No transactions match your search filters.
+                  <td colSpan={5} className="py-12 text-center text-[#7ea999] space-y-2">
+                    <Receipt className="w-8 h-8 text-[#8cb8a8]/40 mx-auto" />
+                    <div className="font-semibold text-white">No Transactions in Your Account Ledger</div>
+                    <p className="text-[11px] text-[#8cb8a8] max-w-sm mx-auto">
+                      All new user accounts start with zero balance and a clean ledger. Once you deposit or receive funds, transactions will appear here.
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -144,6 +148,9 @@ export const TransactionsView: React.FC = () => {
                     t.type === 'deposit' ||
                     t.type === 'yield' ||
                     t.type === 'referral_bonus' ||
+                    t.type === 'referral_reward' ||
+                    t.type === 'yield_earning' ||
+                    t.type === 'daily_bonus' ||
                     t.type === 'goal_withdraw';
 
                   return (
@@ -152,7 +159,7 @@ export const TransactionsView: React.FC = () => {
                         <div className="font-semibold text-white">
                           {new Date(t.createdAt).toLocaleDateString()}
                         </div>
-                        <div className="text-[10px] font-mono text-[#7ea999]">{t.reference}</div>
+                        <div className="text-[10px] font-mono text-[#7ea999]">{t.referenceNumber || t.reference || t.id}</div>
                       </td>
 
                       <td className="py-3.5 px-4">

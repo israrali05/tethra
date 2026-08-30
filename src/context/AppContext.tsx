@@ -147,6 +147,8 @@ interface AppContextType {
   cryptoAssets: CryptoAsset[];
   cryptoHoldings: CryptoHolding[];
   addCryptoHolding: (symbol: string, quantity: number, avgBuyPrice: number) => void;
+  claimCryptoDailyYield: (asset?: 'USDT' | 'BTC' | 'ALL') => boolean;
+  checkAndRewardReferrer: (userId: string, depositAmount: number) => void;
 
   // Referrals
   referrals: ReferralRecord[];
@@ -246,29 +248,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_withdrawals`);
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'wd_init_01',
-        referenceNumber: 'THR-WD-000102',
-        userId: 'usr_001',
-        accountId: 'acc_01',
-        method: 'us_bank_transfer',
-        amount: 750.0,
-        currency: 'USD',
-        fee: 3.75,
-        netAmount: 746.25,
-        destinationDetails: {
-          bankName: 'JPMorgan Chase Bank, N.A.',
-          accountHolder: 'Alexander Vance',
-          accountNumber: '****4821',
-          routingNumber: '021000021',
-        },
-        status: 'completed',
-        estimatedCompletion: '1-3 Business Days',
-        createdAt: '2026-02-26T14:30:00Z',
-        processedAt: '2026-02-28T09:00:00Z',
-      },
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => {
@@ -632,7 +612,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const checkingAcc: FinancialAccount = {
       id: `acc_${Date.now()}_1`,
       userId: newUser.id,
-      name: 'Primary Checking Account',
+      name: 'Primary Checking Account (USD)',
       type: 'checking',
       currency: 'USD',
       balance: 0.0,
@@ -645,7 +625,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const savingsAcc: FinancialAccount = {
       id: `acc_${Date.now()}_2`,
       userId: newUser.id,
-      name: 'High-Yield Savings Vault',
+      name: 'High-Yield Savings Vault (5.4% APY)',
       type: 'savings',
       currency: 'USD',
       balance: 0.0,
@@ -655,9 +635,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       lastActivityAt: new Date().toISOString(),
     };
 
-    setAccounts((prev) => [...prev, checkingAcc, savingsAcc]);
+    const usdtAcc: FinancialAccount = {
+      id: `acc_${Date.now()}_3`,
+      userId: newUser.id,
+      name: 'Digital Asset Treasury (USDT TRC-20)',
+      type: 'crypto',
+      currency: 'USDT',
+      balance: 0.0,
+      accountNumber: `TR-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      lastActivityAt: new Date().toISOString(),
+    };
 
-    // Track Referral if referred
+    const btcAcc: FinancialAccount = {
+      id: `acc_${Date.now()}_4`,
+      userId: newUser.id,
+      name: 'Digital Asset Treasury (BTC BEP-20)',
+      type: 'crypto',
+      currency: 'BTC',
+      balance: 0.0,
+      accountNumber: `TR-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      lastActivityAt: new Date().toISOString(),
+    };
+
+    setAccounts((prev) => [...prev, checkingAcc, savingsAcc, usdtAcc, btcAcc]);
+
+    // Initialize 0.0 crypto holdings
+    setCryptoHoldings((prev) => [
+      ...prev,
+      {
+        id: `hold_${Date.now()}_usdt`,
+        userId: newUser.id,
+        assetSymbol: 'USDT',
+        quantity: 0.0,
+        avgBuyPrice: 1.0,
+      },
+      {
+        id: `hold_${Date.now()}_btc`,
+        userId: newUser.id,
+        assetSymbol: 'BTC',
+        quantity: 0.0,
+        avgBuyPrice: 89450.0,
+      },
+    ]);
+
+    // Track Referral if referred - bonus activates when referee deposits $50 or more
     if (userData.referredByCode) {
       const referrer = users.find((u) => u.referralCode === userData.referredByCode);
       if (referrer) {
@@ -669,9 +694,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           referredEmail: newUser.email,
           joinedDate: new Date().toISOString().split('T')[0],
           status: 'pending',
-          qualificationCriteria: 'Pending KYC and initial deposit',
-          rewardAmount: config.referralRewardAmount,
-          currency: config.referralRewardCurrency,
+          qualificationCriteria: 'Requires $50+ deposit to unlock $25.00 bonus',
+          rewardAmount: 25.0,
+          currency: 'USD',
         };
         setReferrals((prev) => [newRef, ...prev]);
       }
@@ -1194,14 +1219,235 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  // Helper to check and distribute referral reward when referee deposits $50 or more
+  const checkAndRewardReferrer = (depositedUserId: string, depositAmount: number) => {
+    if (depositAmount < 50) return; // Must be at least $50
+
+    const user = users.find((u) => u.id === depositedUserId);
+    if (!user || !user.referredByCode) return;
+
+    const referrer = users.find((u) => u.referralCode === user.referredByCode);
+    if (!referrer) return;
+
+    // Check if referral was already rewarded
+    const existingRef = referrals.find(
+      (r) => r.referrerUserId === referrer.id && r.referredUserId === user.id
+    );
+
+    if (existingRef && existingRef.status === 'credited') {
+      return; // Already rewarded
+    }
+
+    const rewardAmount = 25.0; // $25 reward
+
+    // Find referrer's primary checking account
+    let referrerAcc =
+      accounts.find((a) => a.userId === referrer.id && a.type === 'checking') ||
+      accounts.find((a) => a.userId === referrer.id);
+
+    if (referrerAcc) {
+      setAccounts((prev) =>
+        prev.map((a) =>
+          a.id === referrerAcc!.id
+            ? { ...a, balance: a.balance + rewardAmount, lastActivityAt: new Date().toISOString() }
+            : a
+        )
+      );
+    }
+
+    // Create completed referral reward transaction
+    const refTx: Transaction = {
+      id: `tx_${Date.now()}_ref_bounty`,
+      referenceNumber: `THR-REF-${Math.floor(100000 + Math.random() * 900000)}`,
+      userId: referrer.id,
+      accountId: referrerAcc ? referrerAcc.id : 'acc_ref',
+      accountName: referrerAcc ? referrerAcc.name : 'Primary Checking Account',
+      type: 'referral_reward',
+      amount: rewardAmount,
+      currency: 'USD',
+      fee: 0,
+      description: `Referral Bonus ($25.00) - Qualified: @${user.username} deposited $${depositAmount.toFixed(2)}`,
+      status: 'completed',
+      recipientAccount: referrerAcc?.name || 'Primary Checking',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setTransactions((prev) => [refTx, ...prev]);
+
+    // Update referral record
+    setReferrals((prev) => {
+      const match = prev.find((r) => r.referrerUserId === referrer.id && r.referredUserId === user.id);
+      if (match) {
+        return prev.map((r) =>
+          r.id === match.id
+            ? {
+                ...r,
+                status: 'credited',
+                rewardAmount,
+                qualificationCriteria: `Deposit qualification met: $${depositAmount.toFixed(2)} (>= $50)`,
+                rewardPaidAt: new Date().toISOString(),
+              }
+            : r
+        );
+      } else {
+        const newRecord: ReferralRecord = {
+          id: `ref_${Date.now()}`,
+          referrerUserId: referrer.id,
+          referredUserId: user.id,
+          referredName: `${user.firstName} ${user.lastName}`,
+          referredEmail: user.email,
+          joinedDate: new Date().toISOString().split('T')[0],
+          status: 'credited',
+          qualificationCriteria: `Deposit qualification met: $${depositAmount.toFixed(2)} (>= $50)`,
+          rewardAmount,
+          currency: 'USD',
+          rewardPaidAt: new Date().toISOString(),
+        };
+        return [newRecord, ...prev];
+      }
+    });
+
+    // Send notifications
+    const refNotif: AppNotification = {
+      id: `notif_${Date.now()}_ref`,
+      userId: referrer.id,
+      type: 'reward',
+      title: 'Referral Reward Credited! 🎁 $25.00',
+      message: `You earned a $25.00 cash bonus! Your referee @${user.username} deposited $${depositAmount.toFixed(2)}.`,
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    const depNotif: AppNotification = {
+      id: `notif_${Date.now()}_dep_ref`,
+      userId: user.id,
+      type: 'reward',
+      title: 'Referral Bonus Activated 🤝',
+      message: `Your deposit of $${depositAmount.toFixed(2)} unlocked the $25.00 referral bonus for your inviter @${referrer.username}!`,
+      read: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    setNotifications((prev) => [refNotif, depNotif, ...prev]);
+    addAuditLog('REFERRAL_BONUS_AWARDED', 'financial', `Referral bonus $25 credited to ${referrer.email} for deposit by ${user.email}`);
+  };
+
+  // Dedicated 2% Daily Income Claim for USDT & BTC
+  const claimCryptoDailyYield = (asset: 'USDT' | 'BTC' | 'ALL' = 'ALL') => {
+    if (!currentUser) return false;
+
+    const userAccounts = accounts.filter((a) => a.userId === currentUser.id);
+    const usdtAcc = userAccounts.find((a) => a.currency === 'USDT') || userAccounts.find((a) => a.name.includes('USDT'));
+    const btcAcc = userAccounts.find((a) => a.currency === 'BTC') || userAccounts.find((a) => a.name.includes('BTC'));
+
+    const usdtBal = usdtAcc ? usdtAcc.balance : 0;
+    const btcBal = btcAcc ? btcAcc.balance : 0;
+
+    const usdtYield = Number((usdtBal * 0.02).toFixed(4));
+    const btcYield = Number((btcBal * 0.02).toFixed(6));
+
+    const nowIso = new Date().toISOString();
+
+    setAccounts((prev) =>
+      prev.map((acc) => {
+        if (usdtAcc && acc.id === usdtAcc.id && usdtYield > 0 && (asset === 'USDT' || asset === 'ALL')) {
+          return { ...acc, balance: Number((acc.balance + usdtYield).toFixed(4)), lastActivityAt: nowIso };
+        }
+        if (btcAcc && acc.id === btcAcc.id && btcYield > 0 && (asset === 'BTC' || asset === 'ALL')) {
+          return { ...acc, balance: Number((acc.balance + btcYield).toFixed(6)), lastActivityAt: nowIso };
+        }
+        return acc;
+      })
+    );
+
+    // Sync cryptoHoldings
+    setCryptoHoldings((prev) =>
+      prev.map((h) => {
+        if (h.userId === currentUser.id && h.assetSymbol === 'USDT' && usdtYield > 0 && (asset === 'USDT' || asset === 'ALL')) {
+          return { ...h, quantity: Number((h.quantity + usdtYield).toFixed(4)) };
+        }
+        if (h.userId === currentUser.id && h.assetSymbol === 'BTC' && btcYield > 0 && (asset === 'BTC' || asset === 'ALL')) {
+          return { ...h, quantity: Number((h.quantity + btcYield).toFixed(6)) };
+        }
+        return h;
+      })
+    );
+
+    // Ledger transactions
+    if (usdtYield > 0 && (asset === 'USDT' || asset === 'ALL')) {
+      const tx: Transaction = {
+        id: `tx_${Date.now()}_usdt_yield`,
+        referenceNumber: `THR-YLD-${Math.floor(100000 + Math.random() * 900000)}`,
+        userId: currentUser.id,
+        accountId: usdtAcc!.id,
+        accountName: usdtAcc!.name,
+        type: 'daily_bonus',
+        amount: usdtYield,
+        currency: 'USDT',
+        fee: 0,
+        description: `Daily 2% USDT Yield Accrual (+${usdtYield} USDT on ${usdtBal} USDT balance)`,
+        status: 'completed',
+        recipientAccount: usdtAcc!.name,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      setTransactions((prev) => [tx, ...prev]);
+    }
+
+    if (btcYield > 0 && (asset === 'BTC' || asset === 'ALL')) {
+      const tx: Transaction = {
+        id: `tx_${Date.now()}_btc_yield`,
+        referenceNumber: `THR-YLD-${Math.floor(100000 + Math.random() * 900000)}`,
+        userId: currentUser.id,
+        accountId: btcAcc!.id,
+        accountName: btcAcc!.name,
+        type: 'daily_bonus',
+        amount: btcYield,
+        currency: 'BTC',
+        fee: 0,
+        description: `Daily 2% BTC Yield Accrual (+${btcYield} BTC on ${btcBal} BTC balance)`,
+        status: 'completed',
+        recipientAccount: btcAcc!.name,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      setTransactions((prev) => [tx, ...prev]);
+    }
+
+    triggerCelebration();
+    showToast('Daily 2% Income Credited! 🚀', `Daily 2% yield calculated and deposited for USDT and BTC.`);
+    return true;
+  };
+
   const requestDeposit = (
     accountId: string,
-    method: DepositRequest['method'],
-    amount: number,
-    details: any
+    methodOrAmount: any,
+    amountOrDetails?: any,
+    maybeDetails?: any
   ): DepositRequest => {
     if (!currentUser) throw new Error('Not logged in');
-    const acc = accounts.find((a) => a.id === accountId);
+
+    // Handle flexible argument signatures
+    let method: DepositRequest['method'] = 'crypto_usdt';
+    let amount = 100;
+    let details: any = {};
+
+    if (typeof methodOrAmount === 'string' && typeof amountOrDetails === 'number') {
+      method = methodOrAmount as DepositRequest['method'];
+      amount = amountOrDetails;
+      details = maybeDetails || {};
+    } else if (typeof methodOrAmount === 'number') {
+      amount = methodOrAmount;
+      method = (amountOrDetails as DepositRequest['method']) || 'crypto_usdt';
+      details = typeof maybeDetails === 'object' ? maybeDetails : { notes: maybeDetails };
+    } else {
+      amount = typeof amountOrDetails === 'number' ? amountOrDetails : 100;
+      method = typeof methodOrAmount === 'string' ? (methodOrAmount as DepositRequest['method']) : 'crypto_usdt';
+      details = typeof maybeDetails === 'object' ? maybeDetails : {};
+    }
+
+    const acc = accounts.find((a) => a.id === accountId) || accounts.find((a) => a.userId === currentUser.id);
+    const targetAccountId = acc ? acc.id : accountId;
     const refNum = `THR-DP-${Math.floor(100000 + Math.random() * 900000)}`;
     const fee = amount * (config.depositFeePercentage / 100);
     const netAmount = amount - fee;
@@ -1210,46 +1456,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `dp_${Date.now()}`,
       referenceNumber: refNum,
       userId: currentUser.id,
-      accountId,
+      accountId: targetAccountId,
       method,
       amount,
-      currency: 'USD',
+      currency: acc?.currency || 'USD',
       fee,
       netAmount,
-      status: 'under_review',
-      txHash: details.txHash || undefined,
-      bankReference: details.bankReference || undefined,
-      senderBankName: details.senderBankName || undefined,
-      senderAccountName: details.senderAccountName || undefined,
-      depositAddress: details.depositAddress || undefined,
-      proofUrl: details.proofUrl || undefined,
-      notes: details.notes || undefined,
+      status: 'completed', // Direct instant credit for sandbox confirmation
+      txHash: details?.txHash || (typeof details === 'string' ? details : undefined),
+      bankReference: details?.bankReference || undefined,
+      senderBankName: details?.senderBankName || undefined,
+      senderAccountName: details?.senderAccountName || undefined,
+      depositAddress: details?.depositAddress || undefined,
+      proofUrl: details?.proofUrl || undefined,
+      notes: details?.notes || undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     setDeposits((prev) => [newDeposit, ...prev]);
 
-    // Create pending ledger transaction
+    // Instant credit target account in sandbox
+    setAccounts((prev) =>
+      prev.map((a) => (a.id === targetAccountId ? { ...a, balance: a.balance + netAmount, lastActivityAt: new Date().toISOString() } : a))
+    );
+
+    // Sync crypto holdings if deposit is USDT or BTC
+    if (acc?.currency === 'USDT' || acc?.name.includes('USDT') || method === 'crypto_usdt' || method === 'usdt_trc20') {
+      setCryptoHoldings((prev) => {
+        const found = prev.find((h) => h.userId === currentUser.id && h.assetSymbol === 'USDT');
+        if (found) {
+          return prev.map((h) => (h.id === found.id ? { ...h, quantity: h.quantity + netAmount } : h));
+        } else {
+          return [...prev, { id: `hold_${Date.now()}_usdt`, userId: currentUser.id, assetSymbol: 'USDT', quantity: netAmount, avgBuyPrice: 1.0 }];
+        }
+      });
+    }
+
+    if (acc?.currency === 'BTC' || acc?.name.includes('BTC') || method === 'crypto_btc' || method === 'btc_bep20') {
+      const btcAmount = Number((netAmount / 89450).toFixed(6));
+      setCryptoHoldings((prev) => {
+        const found = prev.find((h) => h.userId === currentUser.id && h.assetSymbol === 'BTC');
+        if (found) {
+          return prev.map((h) => (h.id === found.id ? { ...h, quantity: h.quantity + (acc?.currency === 'BTC' ? netAmount : btcAmount) } : h));
+        } else {
+          return [...prev, { id: `hold_${Date.now()}_btc`, userId: currentUser.id, assetSymbol: 'BTC', quantity: acc?.currency === 'BTC' ? netAmount : btcAmount, avgBuyPrice: 89450.0 }];
+        }
+      });
+    }
+
+    // Create completed ledger transaction
     const tx: Transaction = {
       id: `tx_${Date.now()}`,
       referenceNumber: refNum,
       userId: currentUser.id,
-      accountId,
+      accountId: targetAccountId,
       accountName: acc?.name || 'Account',
       type: 'deposit',
-      amount,
-      currency: 'USD',
+      amount: netAmount,
+      currency: acc?.currency || 'USD',
       fee,
-      description: `Deposit Request (${method.replace('_', ' ').toUpperCase()}) - Reference: ${refNum}`,
-      status: 'pending',
+      description: `Deposit Credited (${method.replace('_', ' ').toUpperCase()}) - Reference: ${refNum}`,
+      status: 'completed',
+      recipientAccount: acc?.name || 'Account',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
 
-    addAuditLog('DEPOSIT_SUBMITTED', 'financial', `Deposit request for $${amount} submitted (Ref: ${refNum})`);
-    showToast('Deposit Submitted', `Ref: ${refNum} — Under compliance review.`);
+    // Check and trigger referral bounty if deposit >= 50
+    checkAndRewardReferrer(currentUser.id, amount);
+
+    addAuditLog('DEPOSIT_SUBMITTED', 'financial', `Deposit confirmed for $${amount} (Ref: ${refNum})`);
+    triggerCelebration();
+    showToast('Deposit Credited! 💵', `Added ${formatMoney(netAmount)} to ${acc?.name || 'Account'}.`);
     return newDeposit;
   };
 
@@ -1260,15 +1540,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     destinationDetails: any
   ): WithdrawalRequest => {
     if (!currentUser) throw new Error('Not logged in');
-    const acc = accounts.find((a) => a.id === accountId);
+    // STRICT VALIDATION: Account must exist, belong to currentUser, and have sufficient funds
+    const acc = accounts.find((a) => a.id === accountId && a.userId === currentUser.id);
 
-    if (!acc || acc.balance < amount) {
-      throw new Error('Insufficient account balance');
+    if (!acc) {
+      throw new Error('Unauthorized or invalid account: You can only withdraw from your own verified account.');
+    }
+
+    if (amount <= 0) {
+      throw new Error('Withdrawal amount must be greater than $0.00.');
+    }
+
+    if (acc.balance < amount) {
+      throw new Error(`Insufficient funds: Your ${acc.name} balance is $${acc.balance.toFixed(2)}. You can only withdraw available funds.`);
     }
 
     // Deduct immediately from available balance to prevent double spending
     setAccounts((prev) =>
-      prev.map((a) => (a.id === accountId ? { ...a, balance: a.balance - amount, lastActivityAt: new Date().toISOString() } : a))
+      prev.map((a) => (a.id === accountId ? { ...a, balance: Number((a.balance - amount).toFixed(2)), lastActivityAt: new Date().toISOString() } : a))
     );
 
     const refNum = `THR-WD-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -2429,8 +2718,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // CSV Export for Ledger
   const exportTransactionsCSV = () => {
+    const userTx = currentUser?.role === 'admin' ? transactions : transactions.filter((t) => t.userId === currentUser?.id);
     const headers = ['Transaction ID', 'Date', 'Type', 'Description', 'Account', 'Amount USD', 'Fee USD', 'Status'];
-    const rows = transactions.map((t) => [
+    const rows = userTx.map((t) => [
       t.referenceNumber,
       new Date(t.createdAt).toLocaleDateString(),
       t.type.toUpperCase(),
@@ -2445,11 +2735,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `tethra_transactions_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `tethra_ledger_${currentUser?.username || 'user'}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('CSV Exported', 'Transaction statement downloaded successfully.');
+    showToast('CSV Exported', 'Your account ledger downloaded successfully.');
   };
 
   // Reset Data
@@ -2461,29 +2751,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAccounts(INITIAL_ACCOUNTS);
     setTransactions(INITIAL_TRANSACTIONS);
     setDeposits([]);
-    setWithdrawals([
-      {
-        id: 'wd_init_01',
-        referenceNumber: 'THR-WD-000102',
-        userId: 'usr_001',
-        accountId: 'acc_01',
-        method: 'us_bank_transfer',
-        amount: 750.0,
-        currency: 'USD',
-        fee: 3.75,
-        netAmount: 746.25,
-        destinationDetails: {
-          bankName: 'JPMorgan Chase Bank, N.A.',
-          accountHolder: 'Alexander Vance',
-          accountNumber: '****4821',
-          routingNumber: '021000021',
-        },
-        status: 'completed',
-        estimatedCompletion: '1-3 Business Days',
-        createdAt: '2026-02-26T14:30:00Z',
-        processedAt: '2026-02-28T09:00:00Z',
-      },
-    ]);
+    setWithdrawals([]);
     setSavingsGoals(INITIAL_SAVINGS_GOALS);
     setPersonalExpenses(INITIAL_PERSONAL_EXPENSES);
     setSharedGroups(INITIAL_GROUPS);
@@ -2589,6 +2857,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cryptoAssets,
         cryptoHoldings,
         addCryptoHolding,
+        claimCryptoDailyYield,
+        checkAndRewardReferrer,
         referrals,
         connections,
         platformActivities,

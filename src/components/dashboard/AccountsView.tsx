@@ -18,6 +18,7 @@ import { AccountType } from '../../types';
 
 export const AccountsView: React.FC = () => {
   const {
+    currentUser,
     accounts,
     createAccount,
     transferInternal,
@@ -25,6 +26,8 @@ export const AccountsView: React.FC = () => {
     setCurrentRoute,
     showToast,
   } = useApp();
+
+  const userAccounts = accounts.filter((a) => a.userId === currentUser?.id);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -35,8 +38,8 @@ export const AccountsView: React.FC = () => {
   const [accountCurrency, setAccountCurrency] = useState('USD');
 
   // Transfer form
-  const [sourceAccountId, setSourceAccountId] = useState(accounts[0]?.id || '');
-  const [targetAccountId, setTargetAccountId] = useState(accounts[1]?.id || '');
+  const [sourceAccountId, setSourceAccountId] = useState(userAccounts[0]?.id || '');
+  const [targetAccountId, setTargetAccountId] = useState(userAccounts[1]?.id || '');
   const [transferAmount, setTransferAmount] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 

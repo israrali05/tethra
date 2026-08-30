@@ -31,13 +31,19 @@ export const WithdrawView: React.FC = () => {
   } = useApp();
 
   const [method, setMethod] = useState<'us_bank' | 'sepa_eu' | 'uk_faster' | 'crypto_usdt'>('us_bank');
-  const [sourceAccountId, setSourceAccountId] = useState(accounts[0]?.id || '');
+  const userAccounts = (accounts || []).filter((a) => a.userId === currentUser?.id);
+  const [sourceAccountId, setSourceAccountId] = useState(
+    userAccounts[0]?.id || ''
+  );
   const [amount, setAmount] = useState('500');
+
+  // Selected account helper
+  const selectedAccount = userAccounts.find((a) => a.id === sourceAccountId) || userAccounts[0];
 
   // Bank Form State
   const [bankName, setBankName] = useState('JPMorgan Chase Bank');
   const [accountHolder, setAccountHolder] = useState(
-    currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : 'Alexander Morgan'
+    currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : ''
   );
   const [routingNumber, setRoutingNumber] = useState('021000021');
   const [accountNumber, setAccountNumber] = useState('482190381029');
@@ -59,7 +65,42 @@ export const WithdrawView: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amt = Number(amount);
-    if (!amt || amt <= 0) return;
+    if (!amt || amt <= 0) {
+      showToast({
+        title: 'Invalid Amount',
+        message: 'Please enter a valid withdrawal amount greater than $0.00.',
+        type: 'error',
+      });
+      return;
+    }
+
+    const currentAcc = userAccounts.find((a) => a.id === sourceAccountId);
+    if (!currentAcc) {
+      showToast({
+        title: 'Account Required',
+        message: 'Please select one of your accounts to withdraw from.',
+        type: 'error',
+      });
+      return;
+    }
+
+    if (currentAcc.balance <= 0) {
+      showToast({
+        title: 'Zero Account Balance',
+        message: `Your ${currentAcc.name} currently has a balance of $0.00. You can only withdraw from funded accounts.`,
+        type: 'error',
+      });
+      return;
+    }
+
+    if (amt > currentAcc.balance) {
+      showToast({
+        title: 'Insufficient Balance',
+        message: `Requested ${formatMoney(amt)} exceeds your available account balance of ${formatMoney(currentAcc.balance)}. You can only withdraw funds from your own account.`,
+        type: 'error',
+      });
+      return;
+    }
 
     if (amt > dailyLimit) {
       showToast({
@@ -99,16 +140,18 @@ export const WithdrawView: React.FC = () => {
           }
         : undefined;
 
-    requestWithdrawal(sourceAccountId, amt, method as any, destination, bankDetails);
-    setShowConfirmModal(false);
-    setAmount('500');
-    setTwoFACode('');
-
-    showToast({
-      title: 'Withdrawal Submitted',
-      message: `${formatMoney(amt)} withdrawal dispatched for compliance processing.`,
-      type: 'success',
-    });
+    try {
+      requestWithdrawal(sourceAccountId, amt, method as any, destination, bankDetails);
+      setShowConfirmModal(false);
+      setTwoFACode('');
+    } catch (err: any) {
+      showToast({
+        title: 'Withdrawal Error',
+        message: err.message || 'Failed to process withdrawal request.',
+        type: 'error',
+      });
+      setShowConfirmModal(false);
+    }
   };
 
   const handleDownloadReceipt = (reference: string, amt: number) => {
@@ -119,57 +162,38 @@ export const WithdrawView: React.FC = () => {
     });
   };
 
-  // Mock withdrawal history data with realistic records
-  const allWithdrawalRecords = [
-    {
-      id: 'wd-hist-1',
-      reference: 'THR-WD-984012',
-      amount: 4200,
-      method: 'US Bank ACH (Chase)',
-      destination: 'Chase Bank (...1029)',
-      date: '2026-08-28 14:32',
-      status: 'completed',
-      step: 4,
-      kycVerified: true,
-      timeline: 'Settled in 24h via ACH Network',
-    },
-    {
-      id: 'wd-hist-2',
-      reference: 'THR-WD-982190',
-      amount: 1500,
-      method: 'USDT (TRC-20)',
-      destination: 'TYp9...4Xmq',
-      date: '2026-08-26 09:15',
-      status: 'completed',
-      step: 4,
-      kycVerified: true,
-      timeline: 'Confirmed on TRON Blockchain',
-    },
-    {
-      id: 'wd-hist-3',
-      reference: 'THR-WD-979924',
-      amount: 12500,
-      method: 'FedWire Transfer',
-      destination: 'Bank of America (...4410)',
-      date: '2026-08-24 16:40',
-      status: 'completed',
-      step: 4,
-      kycVerified: true,
-      timeline: 'FedWire Same-Day Settlement',
-    },
-    ...withdrawals.map((w: any, idx: number) => ({
-      id: w.id || `wd-${idx}`,
-      reference: w.reference || `THR-WD-88${idx}10`,
+  // User-scoped withdrawal history (Strictly only the logged-in user's records)
+  const userWithdrawals = (withdrawals || []).filter((w) => w.userId === currentUser?.id);
+  const allWithdrawalRecords = userWithdrawals.map((w: any) => {
+    const dest =
+      typeof w.destinationDetails === 'object' && w.destinationDetails
+        ? w.destinationDetails.bankName
+          ? `${w.destinationDetails.bankName} (...${(w.destinationDetails.accountNumber || '').slice(-4)})`
+          : w.destinationDetails.cryptoNetwork
+          ? `USDT (${w.destinationDetails.cryptoNetwork})`
+          : 'Bank Settlement Destination'
+        : w.destinationDetails || 'Direct Settlement';
+
+    return {
+      id: w.id,
+      reference: w.referenceNumber || w.reference || w.id,
       amount: w.amount,
-      method: w.method === 'us_bank' ? 'US Bank Payout' : 'USDT Payout',
-      destination: w.destination,
-      date: 'Today, Just now',
+      method:
+        w.method === 'us_bank' || w.method === 'us_bank_transfer'
+          ? 'US Bank (ACH/Wire)'
+          : w.method === 'sepa_eu'
+          ? 'SEPA EU'
+          : w.method === 'uk_faster'
+          ? 'UK Faster Payments'
+          : 'USDT Crypto Payout',
+      destination: dest,
+      date: new Date(w.createdAt).toLocaleString(),
       status: w.status || 'processing',
       step: w.status === 'completed' ? 4 : 2,
       kycVerified: true,
-      timeline: 'Under 1-3 Day Settlement Protocol',
-    })),
-  ];
+      timeline: w.status === 'completed' ? 'Settled & Dispatched' : 'Under 1-3 Day Settlement Protocol',
+    };
+  });
 
   const filteredHistory = allWithdrawalRecords.filter((rec) => {
     if (historyFilter === 'all') return true;
@@ -316,20 +340,32 @@ export const WithdrawView: React.FC = () => {
             className="emerald-card rounded-3xl p-6 sm:p-7 border border-[#d4af37]/30 space-y-4 shadow-xl"
           >
             <div>
-              <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">
-                Source Account (Debit)
-              </label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-semibold text-[#a2cbbe]">
+                  Source Account (Debit)
+                </label>
+                <span className="text-[11px] text-[#6ee7b7] font-mono font-bold">
+                  Available: {formatMoney(selectedAccount?.balance || 0)}
+                </span>
+              </div>
               <select
                 value={sourceAccountId}
                 onChange={(e) => setSourceAccountId(e.target.value)}
                 className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-[#d4af37]"
               >
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name} ({formatMoney(acc.balance)})
-                  </option>
-                ))}
+                {userAccounts.length === 0 ? (
+                  <option value="">No accounts found for your user</option>
+                ) : (
+                  userAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name} ({acc.type.toUpperCase()}) — Balance: {formatMoney(acc.balance)}
+                    </option>
+                  ))
+                )}
               </select>
+              <p className="text-[10px] text-[#8cb8a8] mt-1">
+                * Security policy: You can only withdraw from your own verified account with positive available balance.
+              </p>
             </div>
 
             <div>
@@ -618,58 +654,70 @@ export const WithdrawView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#0d3f32]/60 text-xs">
-              {filteredHistory.map((w) => (
-                <tr key={w.id} className="hover:bg-[#072a20]/60 transition-colors">
-                  {/* Reference & Date */}
-                  <td className="py-4 pl-2">
-                    <div className="font-mono font-bold text-white">{w.reference}</div>
-                    <div className="text-[10px] text-[#8cb8a8] font-mono">{w.date}</div>
-                  </td>
-
-                  {/* Method & Destination */}
-                  <td className="py-4">
-                    <div className="font-bold text-white">{w.method}</div>
-                    <div className="text-[11px] text-[#8cb8a8] font-mono">{w.destination}</div>
-                  </td>
-
-                  {/* Amount */}
-                  <td className="py-4 text-right font-mono font-extrabold text-[#fae188] text-sm">
-                    {formatMoney(w.amount)}
-                  </td>
-
-                  {/* KYC Verified */}
-                  <td className="py-4 text-center">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#10b981]/20 text-[#6ee7b7] border border-[#10b981]/40 font-mono text-[10px]">
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>KYC Passed</span>
-                    </span>
-                  </td>
-
-                  {/* Status Badge */}
-                  <td className="py-4 text-center">
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase border ${
-                        w.status === 'completed'
-                          ? 'bg-[#10b981]/20 text-[#6ee7b7] border-[#10b981]/50'
-                          : 'bg-[#d4af37]/20 text-[#fae188] border-[#d4af37]/50'
-                      }`}
-                    >
-                      ● {w.status}
-                    </span>
-                  </td>
-
-                  {/* Receipt Download */}
-                  <td className="py-4 text-right pr-2">
-                    <button
-                      onClick={() => handleDownloadReceipt(w.reference, w.amount)}
-                      className="p-2 rounded-xl bg-[#041d16] hover:bg-[#073024] text-[#fae188] border border-[#0d3f32] transition-colors"
-                      title="Download Official Audit Receipt"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </button>
+              {filteredHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-[#7ea999] space-y-2">
+                    <FileText className="w-8 h-8 text-[#8cb8a8]/40 mx-auto" />
+                    <div className="font-semibold text-white">No Withdrawal History for Your Account</div>
+                    <p className="text-[11px] text-[#8cb8a8] max-w-md mx-auto">
+                      All new accounts start with zero withdrawal records. You can only withdraw from your own account balance. Once you initiate a withdrawal, tracking will display here.
+                    </p>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredHistory.map((w) => (
+                  <tr key={w.id} className="hover:bg-[#072a20]/60 transition-colors">
+                    {/* Reference & Date */}
+                    <td className="py-4 pl-2">
+                      <div className="font-mono font-bold text-white">{w.reference}</div>
+                      <div className="text-[10px] text-[#8cb8a8] font-mono">{w.date}</div>
+                    </td>
+
+                    {/* Method & Destination */}
+                    <td className="py-4">
+                      <div className="font-bold text-white">{w.method}</div>
+                      <div className="text-[11px] text-[#8cb8a8] font-mono">{w.destination}</div>
+                    </td>
+
+                    {/* Amount */}
+                    <td className="py-4 text-right font-mono font-extrabold text-[#fae188] text-sm">
+                      {formatMoney(w.amount)}
+                    </td>
+
+                    {/* KYC Verified */}
+                    <td className="py-4 text-center">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#10b981]/20 text-[#6ee7b7] border border-[#10b981]/40 font-mono text-[10px]">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>KYC Passed</span>
+                      </span>
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="py-4 text-center">
+                      <span
+                        className={`px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase border ${
+                          w.status === 'completed'
+                            ? 'bg-[#10b981]/20 text-[#6ee7b7] border-[#10b981]/50'
+                            : 'bg-[#d4af37]/20 text-[#fae188] border-[#d4af37]/50'
+                        }`}
+                      >
+                        ● {w.status}
+                      </span>
+                    </td>
+
+                    {/* Receipt Download */}
+                    <td className="py-4 text-right pr-2">
+                      <button
+                        onClick={() => handleDownloadReceipt(w.reference, w.amount)}
+                        className="p-2 rounded-xl bg-[#041d16] hover:bg-[#073024] text-[#fae188] border border-[#0d3f32] transition-colors"
+                        title="Download Official Audit Receipt"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -83,7 +83,15 @@ export interface Transaction {
   updatedAt: string;
 }
 
-export type DepositMethod = 'bank_transfer' | 'usdt_trc20' | 'usdt_erc20' | 'payment_provider';
+export type DepositMethod =
+  | 'bank_transfer'
+  | 'bank_wire'
+  | 'usdt_trc20'
+  | 'usdt_erc20'
+  | 'btc_bep20'
+  | 'crypto_usdt'
+  | 'crypto_btc'
+  | 'payment_provider';
 
 export interface DepositRequest {
   id: string;
@@ -241,11 +249,12 @@ export interface ReferralRecord {
   referredName: string;
   referredEmail: string;
   joinedDate: string;
-  status: 'pending' | 'qualified' | 'rewarded';
+  status: 'pending' | 'qualified' | 'rewarded' | 'credited';
   qualificationCriteria: string;
   rewardAmount: number;
   currency: string;
   paidAt?: string;
+  rewardPaidAt?: string;
 }
 
 export interface UserConnection {
