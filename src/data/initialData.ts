@@ -50,7 +50,7 @@ export const INITIAL_USERS: User[] = [
     uniqueUserId: 'TETHRA-900001',
     firstName: 'Elena',
     lastName: 'Rostova',
-    username: 'elenarostova',
+    username: 'admin',
     email: 'admin@tethra.net',
     phone: '+1 (555) 900-1122',
     country: 'United States',
@@ -95,6 +95,18 @@ export const INITIAL_USERS: User[] = [
 ];
 
 export const INITIAL_ACCOUNTS: FinancialAccount[] = [
+  {
+    id: 'acc_admin_01',
+    userId: 'usr_admin',
+    name: 'Tethra Institutional Treasury (USD)',
+    type: 'checking',
+    currency: 'USD',
+    balance: 2500000.0,
+    accountNumber: 'TR-9000-0001-0001',
+    status: 'active',
+    createdAt: '2025-01-01T08:00:00Z',
+    lastActivityAt: new Date().toISOString(),
+  },
   {
     id: 'acc_001',
     userId: 'usr_001',

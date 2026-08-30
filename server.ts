@@ -207,7 +207,7 @@ const db = {
       phone: '+1 (555) 900-1122',
       firstName: 'Elena',
       lastName: 'Rostova',
-      username: 'elenarostova',
+      username: 'admin',
       pin: '889900',
       role: 'admin' as UserRole,
       kycStatus: 'verified' as KYCStatus,

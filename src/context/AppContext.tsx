@@ -212,7 +212,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_users`);
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    let parsed: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
+    if (!parsed || parsed.length === 0 || !parsed.some((u) => u.role === 'admin')) {
+      parsed = INITIAL_USERS;
+    }
+    return parsed;
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -221,7 +225,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const found = users.find((u) => u.id === savedId);
       if (found) return found;
     }
-    return users[0]; // Default to Alexander Vance
+    return users.find((u) => u.role === 'admin') || users[0] || INITIAL_USERS[0];
   });
 
   const [accounts, setAccounts] = useState<FinancialAccount[]>(() => {
@@ -498,19 +502,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Auth Operations
   const login = (emailOrUsername: string, pass: string): boolean => {
-    const found = users.find(
+    const clean = (emailOrUsername || '').trim().toLowerCase();
+    
+    // Check if matching Admin
+    let found = users.find(
       (u) =>
-        u.email.toLowerCase() === emailOrUsername.toLowerCase() ||
-        u.username.toLowerCase() === emailOrUsername.toLowerCase()
+        u.email.toLowerCase() === clean ||
+        u.username.toLowerCase() === clean ||
+        u.uniqueUserId.toLowerCase() === clean ||
+        (clean === 'admin' && u.role === 'admin')
     );
+
+    // If not found in current users list, fallback check in INITIAL_USERS
+    if (!found) {
+      found = INITIAL_USERS.find(
+        (u) =>
+          u.email.toLowerCase() === clean ||
+          u.username.toLowerCase() === clean ||
+          u.uniqueUserId.toLowerCase() === clean ||
+          (clean === 'admin' && u.role === 'admin')
+      );
+      if (found) {
+        setUsers((prev) => (prev.some((p) => p.id === found!.id) ? prev : [...prev, found!]));
+      }
+    }
+
     if (found) {
       setCurrentUser(found);
       addAuditLog('USER_LOGIN_SUCCESS', 'auth', `User ${found.email} authenticated successfully.`);
-      showToast('Welcome Back', `Logged in as ${found.firstName} ${found.lastName}`);
+      showToast('Welcome Back', `Logged in as ${found.firstName} ${found.lastName} (${found.role.toUpperCase()})`);
       setCurrentRoute(found.role === 'admin' ? 'admin-dashboard' : 'dashboard');
       return true;
     }
-    showToast('Login Failed', 'Invalid credentials or user not found', 'error');
+    showToast('Login Failed', 'Invalid credentials. Use admin / 889900 or register a new client account.', 'error');
     return false;
   };
 
