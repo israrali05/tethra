@@ -183,6 +183,8 @@ export interface SharedGroup {
   createdAt: string;
 }
 
+export type SharedExpenseGroup = SharedGroup;
+
 export interface GroupExpenseItem {
   id: string;
   groupId: string;
@@ -268,7 +270,8 @@ export type NotificationType =
   | 'connection'
   | 'security'
   | 'system'
-  | 'support';
+  | 'support'
+  | 'reward';
 
 export interface AppNotification {
   id: string;
