@@ -554,7 +554,47 @@ app.get('/api/v1/crypto/market', async (req: Request, res: Response) => {
   });
 });
 
-// 3. User Authentication
+// 3. User Authentication & Availability Checks
+app.post('/api/v1/auth/check-availability', (req: Request, res: Response) => {
+  const { type, value } = req.body;
+  if (!type || !value) {
+    return res.status(400).json({ success: false, error: 'Type and value are required.' });
+  }
+
+  const cleanVal = String(value).trim().toLowerCase();
+
+  if (type === 'email') {
+    const exists = db.users.some((u) => u.email.toLowerCase() === cleanVal);
+    return res.json({
+      success: true,
+      available: !exists,
+      error: exists ? 'Email address is already registered.' : undefined,
+    });
+  }
+
+  if (type === 'username') {
+    const cleanUser = cleanVal.replace(/[^a-z0-9_]/g, '');
+    const exists = db.users.some((u) => u.username.toLowerCase() === cleanUser);
+    return res.json({
+      success: true,
+      available: !exists,
+      error: exists ? 'Username is already taken.' : undefined,
+    });
+  }
+
+  if (type === 'phone') {
+    const digits = String(value).replace(/\D/g, '');
+    const exists = digits.length >= 7 && db.users.some((u) => u.phone && u.phone.replace(/\D/g, '') === digits);
+    return res.json({
+      success: true,
+      available: !exists,
+      error: exists ? 'Phone number is already registered with another account.' : undefined,
+    });
+  }
+
+  res.json({ success: true, available: true });
+});
+
 app.post('/api/v1/auth/register', (req: Request, res: Response) => {
   const { email, phone, firstName, lastName, username, pin, country, city, referralCode } = req.body;
 
@@ -562,9 +602,28 @@ app.post('/api/v1/auth/register', (req: Request, res: Response) => {
     return res.status(400).json({ success: false, error: 'First name, last name, and email are required.' });
   }
 
-  const existingEmail = db.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanUsername = (username || email.split('@')[0]).toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const cleanPhoneDigits = phone ? phone.replace(/\D/g, '') : '';
+
+  // 1. Check duplicate Email
+  const existingEmail = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
   if (existingEmail) {
-    return res.status(400).json({ success: false, error: 'Email address is already registered.' });
+    return res.status(400).json({ success: false, error: 'Email address is already registered. Please sign in or use another email.' });
+  }
+
+  // 2. Check duplicate Username
+  const existingUsername = db.users.find((u) => u.username.toLowerCase() === cleanUsername);
+  if (existingUsername) {
+    return res.status(400).json({ success: false, error: 'Username is already taken. Please choose a different username.' });
+  }
+
+  // 3. Check duplicate Phone
+  if (cleanPhoneDigits && cleanPhoneDigits.length >= 7) {
+    const existingPhone = db.users.find((u) => u.phone && u.phone.replace(/\D/g, '') === cleanPhoneDigits);
+    if (existingPhone) {
+      return res.status(400).json({ success: false, error: 'Phone number is already associated with an existing account.' });
+    }
   }
 
   const userId = `usr_${Date.now()}`;
@@ -574,11 +633,11 @@ app.post('/api/v1/auth/register', (req: Request, res: Response) => {
   const newUser: User = {
     id: userId,
     uniqueUserId: uniqueLedgerId,
-    email: email.trim().toLowerCase(),
+    email: cleanEmail,
     phone: phone || '',
     firstName: firstName.trim(),
     lastName: lastName.trim(),
-    username: (username || email.split('@')[0]).toLowerCase().replace(/[^a-z0-9_]/g, ''),
+    username: cleanUsername,
     pin: pin || '889900',
     role: 'user',
     kycStatus: 'unverified',
@@ -595,7 +654,7 @@ app.post('/api/v1/auth/register', (req: Request, res: Response) => {
 
   db.users.push(newUser);
 
-  // Initialize Standard Multi-Currency Accounts for User
+  // Initialize Standard Multi-Currency Accounts for User strictly with $0.00 Balance
   const checkingAcc: FinancialAccount = {
     id: `acc_${userId}_chk`,
     userId,

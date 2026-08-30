@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { TethraLogo } from '../common/TethraLogo';
 import {
@@ -49,7 +49,7 @@ const COUNTRY_DIAL_CODES = [
 ];
 
 export const AuthPages: React.FC = () => {
-  const { currentRoute, setCurrentRoute, login, register, users, showToast } = useApp();
+  const { currentRoute, setCurrentRoute, login, register, users, showToast, checkAvailability } = useApp();
 
   // Login State
   const [loginEmail, setLoginEmail] = useState('');
@@ -87,6 +87,22 @@ export const AuthPages: React.FC = () => {
     privacyAccepted: false,
     emailVerified: false,
   });
+
+  // Validation helpers
+  const emailAvailability = useMemo(() => {
+    if (!regData.email || !regData.email.includes('@')) return { available: true };
+    return checkAvailability('email', regData.email);
+  }, [regData.email, checkAvailability, users]);
+
+  const usernameAvailability = useMemo(() => {
+    if (!regData.username || regData.username.trim().length < 2) return { available: true };
+    return checkAvailability('username', regData.username);
+  }, [regData.username, checkAvailability, users]);
+
+  const phoneAvailability = useMemo(() => {
+    if (!rawPhone || rawPhone.replace(/\D/g, '').length < 7) return { available: true };
+    return checkAvailability('phone', rawPhone);
+  }, [rawPhone, checkAvailability, users]);
 
   // Countdown timer for OTP
   useEffect(() => {
@@ -365,9 +381,20 @@ export const AuthPages: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">
-                  Email Address <span className="text-[#fae188] font-normal">(6-digit OTP code sent here)</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-[#a2cbbe]">
+                    Email Address <span className="text-[#fae188] font-normal">(Unique required)</span>
+                  </label>
+                  {regData.email && (
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                      emailAvailability.available && regData.email.includes('@')
+                        ? 'bg-[#10b981]/20 text-[#6ee7b7]'
+                        : 'bg-red-950/60 text-red-300 border border-red-500/40'
+                    }`}>
+                      {emailAvailability.available && regData.email.includes('@') ? '✓ Available' : '✗ Email Already Registered'}
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-[#8cb8a8] absolute left-3.5 top-3" />
                   <input
@@ -376,9 +403,18 @@ export const AuthPages: React.FC = () => {
                     value={regData.email}
                     onChange={(e) => setRegData({ ...regData, email: e.target.value })}
                     placeholder="alexander@tethra.net"
-                    className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 pl-10 pr-3 text-sm text-white focus:outline-none focus:border-[#d4af37]"
+                    className={`w-full bg-[#041d16] rounded-xl py-2.5 pl-10 pr-3 text-sm text-white focus:outline-none ${
+                      !emailAvailability.available
+                        ? 'border-2 border-red-500 bg-red-950/20'
+                        : 'border border-[#144f3d] focus:border-[#d4af37]'
+                    }`}
                   />
                 </div>
+                {!emailAvailability.available && (
+                  <p className="text-[11px] text-red-400 mt-1 flex items-center gap-1 font-medium">
+                    <span>⚠️</span> This email is already registered. Please sign in or use a different email.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -416,32 +452,43 @@ export const AuthPages: React.FC = () => {
 
               <button
                 type="button"
-                disabled={!regData.firstName || !regData.email}
+                disabled={!regData.firstName || !regData.email || !emailAvailability.available || !regData.email.includes('@')}
                 onClick={() => setRegStep(2)}
                 className="w-full py-3.5 rounded-xl gold-gradient-bg text-[#031d16] font-display font-bold text-sm shadow-md hover:scale-[1.02] transition-transform disabled:opacity-50"
               >
-                Next: Phone Number &gt;
+                Next: Phone &amp; Username &gt;
               </button>
             </div>
           )}
 
-          {/* STEP 2: Real Phone Number with International Country Code */}
+          {/* STEP 2: Real Phone Number & Unique Username */}
           {regStep === 2 && (
             <div className="space-y-4 animate-in fade-in">
               <div className="p-3.5 rounded-xl bg-[#05261d] border border-[#144f3d] space-y-1">
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Phone className="w-4 h-4 text-[#d4af37]" />
-                  <span>Real Mobile Phone Number Verification</span>
+                  <span>Unique Mobile Phone &amp; Username Verification</span>
                 </div>
                 <p className="text-[11px] text-[#8cb8a8]">
-                  Used for SMS notifications, high-value transfer verifications, and VIP support hotline.
+                  Used for instant P2P recipient lookups, SMS security alerts, and live ledger transfers.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#a2cbbe] mb-1.5">
-                  Select Country Dial Code &amp; Phone Number
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-[#a2cbbe]">
+                    Country Dial Code &amp; Phone Number
+                  </label>
+                  {rawPhone && (
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                      phoneAvailability.available
+                        ? 'bg-[#10b981]/20 text-[#6ee7b7]'
+                        : 'bg-red-950/60 text-red-300 border border-red-500/40'
+                    }`}>
+                      {phoneAvailability.available ? '✓ Phone Available' : '✗ Phone Already Used'}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <select
                     value={countryCode}
@@ -461,23 +508,54 @@ export const AuthPages: React.FC = () => {
                     value={rawPhone}
                     onChange={(e) => setRawPhone(e.target.value.replace(/[^0-9\s-]/g, ''))}
                     placeholder="e.g. 555-839-2041"
-                    className="flex-1 bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 px-3 text-sm font-mono text-white focus:outline-none focus:border-[#d4af37]"
+                    className={`flex-1 bg-[#041d16] rounded-xl py-2.5 px-3 text-sm font-mono text-white focus:outline-none ${
+                      !phoneAvailability.available
+                        ? 'border-2 border-red-500 bg-red-950/20'
+                        : 'border border-[#144f3d] focus:border-[#d4af37]'
+                    }`}
                   />
                 </div>
-                <p className="text-[10px] font-mono text-[#78a494] mt-1.5">
-                  Full Format: <span className="text-[#fae188]">{countryCode} {rawPhone || 'XXXX-XXXXXX'}</span>
-                </p>
+                {!phoneAvailability.available ? (
+                  <p className="text-[11px] text-red-400 mt-1 flex items-center gap-1 font-medium">
+                    <span>⚠️</span> This phone number is already linked to another account.
+                  </p>
+                ) : (
+                  <p className="text-[10px] font-mono text-[#78a494] mt-1.5">
+                    Full Format: <span className="text-[#fae188]">{countryCode} {rawPhone || 'XXXX-XXXXXX'}</span>
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">Choose Username</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-[#a2cbbe]">Choose Unique Username</label>
+                  {regData.username && (
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                      usernameAvailability.available
+                        ? 'bg-[#10b981]/20 text-[#6ee7b7]'
+                        : 'bg-red-950/60 text-red-300 border border-red-500/40'
+                    }`}>
+                      {usernameAvailability.available ? '✓ Username Available' : '✗ Username Taken'}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
+                  required
                   value={regData.username}
-                  onChange={(e) => setRegData({ ...regData, username: e.target.value.toLowerCase().replace(/\s+/g, '') })}
-                  placeholder="alexvance"
-                  className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-[#d4af37]"
+                  onChange={(e) => setRegData({ ...regData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                  placeholder="e.g. alexvance"
+                  className={`w-full bg-[#041d16] rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none ${
+                    !usernameAvailability.available
+                      ? 'border-2 border-red-500 bg-red-950/20'
+                      : 'border border-[#144f3d] focus:border-[#d4af37]'
+                  }`}
                 />
+                {!usernameAvailability.available && (
+                  <p className="text-[11px] text-red-400 mt-1 flex items-center gap-1 font-medium">
+                    <span>⚠️</span> This username is already taken. Please choose another username.
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-3">
@@ -490,7 +568,13 @@ export const AuthPages: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  disabled={!rawPhone}
+                  disabled={
+                    !rawPhone ||
+                    rawPhone.replace(/\D/g, '').length < 7 ||
+                    !regData.username ||
+                    !phoneAvailability.available ||
+                    !usernameAvailability.available
+                  }
                   onClick={() => {
                     handleSendOtp();
                     setRegStep(3);

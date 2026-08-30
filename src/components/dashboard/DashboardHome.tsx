@@ -69,7 +69,7 @@ export const DashboardHome: React.FC = () => {
       return sum + (tx.type === 'withdrawal' || tx.type === 'expense' ? -Math.abs(amount) : Math.abs(amount));
     }, 0);
 
-    const baseVal = Math.max(1000, totalBalance - totalTxDelta);
+    const baseVal = totalBalance === 0 ? 0 : Math.max(0, totalBalance - totalTxDelta);
 
     const step = Math.max(1, Math.floor(days / 7));
     for (let i = days; i >= 0; i -= step) {
@@ -86,7 +86,7 @@ export const DashboardHome: React.FC = () => {
         return sum + (tx.type === 'withdrawal' || tx.type === 'expense' ? -Math.abs(amount) : Math.abs(amount));
       }, 0);
 
-      const estimatedBalance = i === 0 ? totalBalance : Math.max(500, baseVal + delta);
+      const estimatedBalance = i === 0 ? totalBalance : (totalBalance === 0 && sortedTx.length === 0 ? 0 : Math.max(0, baseVal + delta));
 
       result.push({
         date: dateLabel,

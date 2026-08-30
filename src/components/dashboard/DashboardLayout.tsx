@@ -77,7 +77,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { id: 'security', label: 'Security & 2FA', icon: <Lock className="w-4 h-4" /> },
     { id: 'support', label: '24/7 Dedicated Support', icon: <Headphones className="w-4 h-4" /> },
     { id: 'profile', label: 'Profile Settings', icon: <Settings className="w-4 h-4" /> },
-    { id: 'backend-console', label: 'Backend API & Console', icon: <Server className="w-4 h-4 text-[#10b981]" />, badge: 'REST API' },
+    ...(currentUser?.role === 'admin'
+      ? [{ id: 'backend-console' as AppRoute, label: 'Backend API & Console', icon: <Server className="w-4 h-4 text-[#10b981]" />, badge: 'REST API' }]
+      : []),
   ];
 
   return (
@@ -97,25 +99,23 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             <TethraLogo size="sm" showSubtext={false} />
           </button>
 
-          {/* Quick Admin Portal Direct Access Button */}
-          <button
-            onClick={() => setCurrentRoute('admin-dashboard')}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-red-950/80 via-purple-950/90 to-red-950/80 hover:from-red-900/90 hover:to-purple-900/90 border border-[#d4af37]/60 text-xs font-mono text-[#fae188] shadow-md transition-all font-bold"
-            title="Open Full Executive Admin Control Center"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-[#d4af37] animate-pulse" />
-            <span>Admin Portal</span>
-          </button>
+          {/* Quick Admin Portal Direct Access Button - STRICTLY FOR ADMIN ONLY */}
+          {currentUser?.role === 'admin' && (
+            <button
+              onClick={() => setCurrentRoute('admin-dashboard')}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-red-950/80 via-purple-950/90 to-red-950/80 hover:from-red-900/90 hover:to-purple-900/90 border border-[#d4af37]/60 text-xs font-mono text-[#fae188] shadow-md transition-all font-bold"
+              title="Open Full Executive Admin Control Center"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#d4af37] animate-pulse" />
+              <span>Admin Portal</span>
+            </button>
+          )}
 
-          {/* Full-Stack API Status Badge & Quick Access */}
-          <button
-            onClick={() => setCurrentRoute('backend-console')}
-            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#062d22] hover:bg-[#0a4233] border border-[#10b981]/50 text-[11px] font-mono text-[#10b981] transition-all cursor-pointer"
-            title="Open Live Express Backend API Explorer"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#10b981] animate-ping" />
-            <span>Node/Express API: 200 OK</span>
-          </button>
+          {/* Live System Status */}
+          <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#062d22] border border-[#10b981]/30 text-[11px] font-mono text-[#8cb8a8]">
+            <span className="w-2 h-2 rounded-full bg-[#10b981]" />
+            <span>256-Bit Encrypted Banking Core</span>
+          </div>
         </div>
 
         {/* Right Controls */}

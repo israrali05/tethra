@@ -60,7 +60,8 @@ interface AppContextType {
   setCurrentUser: (user: User | null) => void;
   users: User[];
   login: (emailOrUsername: string, pass: string) => boolean;
-  register: (userData: Partial<User>) => User;
+  register: (userData: Partial<User>) => User | null;
+  checkAvailability: (type: 'email' | 'username' | 'phone', value: string) => { available: boolean; error?: string };
   logout: () => void;
   switchUser: (userId: string) => void;
   updateProfile: (updates: Partial<User>) => void;
@@ -538,7 +539,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
-  const register = (userData: Partial<User>): User => {
+  const checkAvailability = (type: 'email' | 'username' | 'phone', value: string): { available: boolean; error?: string } => {
+    if (!value || !value.trim()) return { available: true };
+    const clean = value.trim().toLowerCase();
+
+    if (type === 'email') {
+      const exists = users.some((u) => u.email.toLowerCase() === clean);
+      return {
+        available: !exists,
+        error: exists ? 'This email address is already registered. Please sign in or choose another.' : undefined,
+      };
+    }
+
+    if (type === 'username') {
+      const cleanUser = clean.replace(/[^a-z0-9_]/g, '');
+      const exists = users.some((u) => u.username.toLowerCase() === cleanUser);
+      return {
+        available: !exists,
+        error: exists ? 'This username is already taken. Please choose a different username.' : undefined,
+      };
+    }
+
+    if (type === 'phone') {
+      const digits = value.replace(/\D/g, '');
+      const exists = digits.length >= 7 && users.some((u) => u.phone && u.phone.replace(/\D/g, '') === digits);
+      return {
+        available: !exists,
+        error: exists ? 'This phone number is already linked to another account.' : undefined,
+      };
+    }
+
+    return { available: true };
+  };
+
+  const register = (userData: Partial<User>): User | null => {
+    const cleanEmail = (userData.email || '').trim().toLowerCase();
+    const cleanUsername = (userData.username || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const cleanPhoneDigits = userData.phone ? userData.phone.replace(/\D/g, '') : '';
+
+    // 1. Strict Duplicate Email Check
+    if (cleanEmail && users.some((u) => u.email.toLowerCase() === cleanEmail)) {
+      showToast('Registration Error', 'This email address is already registered. Please sign in or use another email.', 'error');
+      return null;
+    }
+
+    // 2. Strict Duplicate Username Check
+    if (cleanUsername && users.some((u) => u.username.toLowerCase() === cleanUsername)) {
+      showToast('Registration Error', 'This username is already taken. Please choose a different username.', 'error');
+      return null;
+    }
+
+    // 3. Strict Duplicate Phone Check
+    if (cleanPhoneDigits.length >= 7 && users.some((u) => u.phone && u.phone.replace(/\D/g, '') === cleanPhoneDigits)) {
+      showToast('Registration Error', 'This phone number is already registered with an existing account.', 'error');
+      return null;
+    }
+
     const newIdNum = 100000 + users.length + 1;
     const uniqueUserId = `TETHRA-${newIdNum}`;
     const randomHex = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -549,8 +605,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       uniqueUserId,
       firstName: userData.firstName || 'New',
       lastName: userData.lastName || 'Member',
-      username: userData.username || `user_${newIdNum}`,
-      email: userData.email || `user${newIdNum}@tethra.net`,
+      username: cleanUsername || `user_${newIdNum}`,
+      email: cleanEmail || `user${newIdNum}@tethra.net`,
       phone: userData.phone || '+1 555 000 0000',
       country: userData.country || 'United States',
       city: userData.city || 'New York, NY',
@@ -572,7 +628,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) => [...prev, newUser]);
     setCurrentUser(newUser);
 
-    // Create Default Accounts for new user with zero balance
+    // Create Default Accounts for new user strictly with ZERO balance ($0.00)
     const checkingAcc: FinancialAccount = {
       id: `acc_${Date.now()}_1`,
       userId: newUser.id,
@@ -622,7 +678,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     addAuditLog('USER_REGISTRATION', 'auth', `New user registered: ${newUser.uniqueUserId} (${newUser.email})`);
-    showToast('Welcome to Tethra', 'Account created successfully.');
+    showToast('Welcome to Tethra', 'Account created successfully with $0.00 initial balance.');
     triggerCelebration();
     setCurrentRoute('dashboard');
     return newUser;
