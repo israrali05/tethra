@@ -2519,6 +2519,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         users,
         login,
         register,
+        checkAvailability,
         logout,
         switchUser,
         updateProfile,
