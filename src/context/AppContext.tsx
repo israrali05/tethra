@@ -128,6 +128,7 @@ interface AppContextType {
   adminDistributeDailyBonusToAllUsers: (percentage?: number) => { totalUsersRewarded: number; totalDistributedUSD: number };
   adminToggleAccountStatus: (accountId: string) => void;
   adminUpdateUserKYC: (userId: string, status: 'not_started' | 'pending' | 'verified' | 'rejected') => void;
+  adminUpdateUserProfile: (userId: string, updates: Partial<User>) => boolean;
   adminDeleteUser: (userId: string) => void;
 
   // Savings Goals
@@ -1859,13 +1860,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Update account balance
+    const updatedAccount = { ...targetAccount, balance: targetAccount.balance + amount, lastActivityAt: new Date().toISOString() };
     setAccounts((prev) =>
       prev.map((acc) =>
-        acc.id === accountId
-          ? { ...acc, balance: acc.balance + amount, lastActivityAt: new Date().toISOString() }
-          : acc
+        acc.id === accountId ? updatedAccount : acc
       )
     );
+
+    // Save directly to Firestore
+    saveDocument('accounts', accountId, updatedAccount);
 
     // Record verified ledger transaction
     const refNum = `THR-ADM-CR-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -1885,6 +1888,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
+
+    // Save transaction to Firestore
+    saveDocument('transactions', tx.id, tx);
 
     // Send notification to user
     const notif: AppNotification = {
@@ -1939,14 +1945,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Deduct balance (floor at 0 or allow overdraft if needed, default safe to 0)
     const newBal = Math.max(0, targetAccount.balance - amount);
+    const updatedAccount = { ...targetAccount, balance: newBal, lastActivityAt: new Date().toISOString() };
 
     setAccounts((prev) =>
       prev.map((acc) =>
-        acc.id === accountId
-          ? { ...acc, balance: newBal, lastActivityAt: new Date().toISOString() }
-          : acc
+        acc.id === accountId ? updatedAccount : acc
       )
     );
+
+    // Save directly to Firestore
+    saveDocument('accounts', accountId, updatedAccount);
 
     // Record ledger transaction
     const refNum = `THR-ADM-DB-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -1966,6 +1974,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
+
+    // Save transaction to Firestore
+    saveDocument('transactions', tx.id, tx);
 
     // Send notification
     const notif: AppNotification = {
@@ -2016,13 +2027,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const diff = newBalance - targetAccount.balance;
 
+    const updatedAccount = { ...targetAccount, balance: newBalance, lastActivityAt: new Date().toISOString() };
     setAccounts((prev) =>
       prev.map((acc) =>
-        acc.id === accountId
-          ? { ...acc, balance: newBalance, lastActivityAt: new Date().toISOString() }
-          : acc
+        acc.id === accountId ? updatedAccount : acc
       )
     );
+
+    // Save directly to Firestore
+    saveDocument('accounts', accountId, updatedAccount);
 
     const refNum = `THR-ADM-SET-${Math.floor(100000 + Math.random() * 900000)}`;
     const tx: Transaction = {
@@ -2041,6 +2054,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: new Date().toISOString(),
     };
     setTransactions((prev) => [tx, ...prev]);
+
+    // Save transaction to Firestore
+    saveDocument('transactions', tx.id, tx);
 
     addAuditLog(
       'ADMIN_SET_USER_BALANCE',
@@ -2077,13 +2093,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetAcc = referrerAccounts[0];
 
     if (targetAcc) {
+      const updatedAcc = { ...targetAcc, balance: targetAcc.balance + rewardAmt, lastActivityAt: new Date().toISOString() };
       setAccounts((prev) =>
         prev.map((a) =>
-          a.id === targetAcc.id
-            ? { ...a, balance: a.balance + rewardAmt, lastActivityAt: new Date().toISOString() }
-            : a
+          a.id === targetAcc.id ? updatedAcc : a
         )
       );
+
+      // Persist to Firestore
+      saveDocument('accounts', targetAcc.id, updatedAcc);
 
       // Add transaction
       const refNum = `THR-REF-BN-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -2103,6 +2121,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatedAt: new Date().toISOString(),
       };
       setTransactions((prev) => [tx, ...prev]);
+
+      // Persist transaction to Firestore
+      saveDocument('transactions', tx.id, tx);
 
       // Notify user
       const notif: AppNotification = {
@@ -2308,9 +2329,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!targetAcc) return;
 
     const nextStatus = targetAcc.status === 'active' ? 'frozen' : 'active';
+    const updatedAcc = { ...targetAcc, status: nextStatus, lastActivityAt: new Date().toISOString() };
     setAccounts((prev) =>
-      prev.map((a) => (a.id === accountId ? { ...a, status: nextStatus, lastActivityAt: new Date().toISOString() } : a))
+      prev.map((a) => (a.id === accountId ? updatedAcc : a))
     );
+
+    // Save to Firestore
+    saveDocument('accounts', accountId, updatedAcc);
 
     addAuditLog(
       'ADMIN_TOGGLED_ACCOUNT_STATUS',
@@ -2338,8 +2363,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser({ ...currentUser, kycStatus: status });
     }
 
+    // Save to Firestore
+    saveDocument('users', userId, { kycStatus: status });
+
     addAuditLog('ADMIN_OVERRIDE_KYC', 'kyc', `Admin forced KYC status for user ${userId} to ${status.toUpperCase()}`);
     showToast('KYC Status Updated', `User KYC status is now ${status.toUpperCase()}.`);
+  };
+
+  const adminUpdateUserProfile = (userId: string, updates: Partial<User>): boolean => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', 'Unauthorized user edit attempted.');
+      return false;
+    }
+    const target = users.find((u) => u.id === userId);
+    if (!target) {
+      showToast('User Not Found', 'Target user account does not exist.', 'error');
+      return false;
+    }
+
+    const mergedUser = { ...target, ...updates, updatedAt: new Date().toISOString() };
+
+    setUsers((prev) => prev.map((u) => (u.id === userId ? mergedUser : u)));
+    if (currentUser && currentUser.id === userId) {
+      setCurrentUser(mergedUser);
+    }
+
+    // Persist changes directly to Firestore
+    saveDocument('users', userId, mergedUser);
+
+    addAuditLog(
+      'ADMIN_UPDATED_USER_PROFILE',
+      'admin',
+      `Admin updated profile details for ${target.email} (${target.uniqueUserId})`
+    );
+
+    showToast('User Account Updated', `Saved profile details for ${mergedUser.firstName} ${mergedUser.lastName}.`);
+    return true;
   };
 
   const adminDeleteUser = (userId: string) => {
@@ -2355,9 +2415,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
+    const userAccounts = accounts.filter((a) => a.userId === userId);
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     setAccounts((prev) => prev.filter((a) => a.userId !== userId));
     setTransactions((prev) => prev.filter((t) => t.userId !== userId));
+
+    // Delete from Firestore directly
+    deleteDocumentFromFirestore('users', userId);
+    userAccounts.forEach((acc) => deleteDocumentFromFirestore('accounts', acc.id));
 
     addAuditLog('ADMIN_DELETED_USER', 'admin', `Admin removed user account: ${target.email} (${target.uniqueUserId})`);
     showToast('User Deleted', `User ${target.firstName} ${target.lastName} was removed.`);
@@ -3015,6 +3080,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         adminDistributeDailyBonusToAllUsers,
         adminToggleAccountStatus,
         adminUpdateUserKYC,
+        adminUpdateUserProfile,
         adminDeleteUser,
         savingsGoals,
         createSavingsGoal,

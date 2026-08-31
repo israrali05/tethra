@@ -32,6 +32,13 @@ import {
   Sliders,
   Send,
   Zap,
+  Edit3,
+  Trash2,
+  ShieldCheck,
+  Mail,
+  Phone,
+  MapPin,
+  UserPlus,
 } from 'lucide-react';
 import { ALL_BANK_PRESETS } from '../../data/banksData';
 import { User, FinancialAccount, WithdrawalRequest, ReferralRecord } from '../../types';
@@ -60,6 +67,7 @@ export const AdminPortal: React.FC = () => {
     adminDistributeDailyBonusToAllUsers,
     adminToggleAccountStatus,
     adminUpdateUserKYC,
+    adminUpdateUserProfile,
     adminDeleteUser,
     approveKYC,
     rejectKYC,
@@ -100,6 +108,24 @@ export const AdminPortal: React.FC = () => {
   const [bonusAmount, setBonusAmount] = useState<string>('25');
   const [bonusType, setBonusType] = useState<string>('Welcome Bonus Grant');
   const [bonusReason, setBonusReason] = useState<string>('VIP referral & promotional incentive');
+
+  // Edit User Full Control Modal State
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editCountry, setEditCountry] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editRole, setEditRole] = useState<'user' | 'admin'>('user');
+  const [editKycStatus, setEditKycStatus] = useState<'not_started' | 'pending' | 'verified' | 'rejected'>('not_started');
+  const [editTier, setEditTier] = useState<string>('Standard');
+
+  // Delete User Confirmation Modal State
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [showDeleteUserModal, setShowDeleteUserModal] = useState(false);
 
   // Rejection Modal State for Withdrawals
   const [rejectWithdrawalId, setRejectWithdrawalId] = useState<string | null>(null);
@@ -175,6 +201,49 @@ export const AdminPortal: React.FC = () => {
 
     adminIssueCustomBonus(bonusTargetUserId, amt, bonusType, bonusReason);
     setShowCustomBonusModal(false);
+  };
+
+  const handleOpenEditUser = (user: User) => {
+    setSelectedUserForEdit(user);
+    setEditFirstName(user.firstName || '');
+    setEditLastName(user.lastName || '');
+    setEditEmail(user.email || '');
+    setEditPhone(user.phoneNumber || '');
+    setEditCountry(user.country || 'United States');
+    setEditCity(user.city || '');
+    setEditAddress(user.address || '');
+    setEditRole(user.role || 'user');
+    setEditKycStatus(user.kycStatus || 'not_started');
+    setEditTier((user as any).tier || 'Standard');
+    setShowEditUserModal(true);
+  };
+
+  const handleSaveEditUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserForEdit) return;
+
+    adminUpdateUserProfile(selectedUserForEdit.id, {
+      firstName: editFirstName.trim(),
+      lastName: editLastName.trim(),
+      email: editEmail.trim().toLowerCase(),
+      phoneNumber: editPhone.trim(),
+      country: editCountry.trim(),
+      city: editCity.trim(),
+      address: editAddress.trim(),
+      role: editRole,
+      kycStatus: editKycStatus,
+      tier: editTier as any,
+    });
+
+    setShowEditUserModal(false);
+    setSelectedUserForEdit(null);
+  };
+
+  const handleConfirmDeleteUser = () => {
+    if (!userToDelete) return;
+    adminDeleteUser(userToDelete.id);
+    setShowDeleteUserModal(false);
+    setUserToDelete(null);
   };
 
   const handleConfirmRejectWithdrawal = () => {
@@ -622,11 +691,19 @@ export const AdminPortal: React.FC = () => {
                                 setSelectedAccountId(checkingAcc?.id || userAccs[0]?.id || '');
                                 setShowMoneyModal(true);
                               }}
-                              className="px-3 py-1.5 rounded-xl gold-gradient-bg text-[#031d16] font-extrabold text-xs shadow hover:scale-105 transition-all flex items-center gap-1"
+                              className="px-2.5 py-1.5 rounded-xl gold-gradient-bg text-[#031d16] font-extrabold text-xs shadow hover:scale-105 transition-all flex items-center gap-1"
                               title="Add or Remove Money from this User"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
                               <span>Modify Money</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleOpenEditUser(u)}
+                              className="p-1.5 rounded-xl bg-[#03241b] hover:bg-[#074233] text-[#38bdf8] border border-[#38bdf8]/40 text-xs transition-all shadow"
+                              title="Edit User Profile, Email, Role, KYC & Data"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
                             </button>
 
                             <button
@@ -644,6 +721,19 @@ export const AdminPortal: React.FC = () => {
                             >
                               {isFrozen ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                             </button>
+
+                            {u.role !== 'admin' && (
+                              <button
+                                onClick={() => {
+                                  setUserToDelete(u);
+                                  setShowDeleteUserModal(true);
+                                }}
+                                className="p-1.5 rounded-xl bg-red-950/60 hover:bg-red-900 text-red-400 hover:text-red-200 border border-red-500/30 text-xs transition-all shadow"
+                                title="Permanently Delete User Account from Database"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
 
                             <button
                               onClick={() => switchUser(u.id)}
@@ -1664,6 +1754,252 @@ export const AdminPortal: React.FC = () => {
                   <span>{globalBonusExecuting ? 'Distributing...' : 'Confirm & Distribute to All'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: FULL CONTROL EDIT USER PROFILE & CREDENTIALS                       */}
+      {/* ========================================================================= */}
+      {showEditUserModal && selectedUserForEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="emerald-card-highlight w-full max-w-xl rounded-3xl p-6 sm:p-7 border border-[#38bdf8]/50 shadow-2xl animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-[#38bdf8]/20">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-[#03241b] border border-[#38bdf8]/40 text-[#38bdf8]">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Full User Account Control</h3>
+                  <p className="text-[11px] text-[#a0c5b9]">
+                    Edit profile, contact details, KYC verification status, membership tier &amp; security
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditUserModal(false);
+                  setSelectedUserForEdit(null);
+                }}
+                className="text-white/60 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditUser} className="space-y-4 mt-5">
+              {/* User ID & Unique ID Display */}
+              <div className="p-3 rounded-xl bg-[#021811] border border-[#0d4f3b] flex items-center justify-between text-xs font-mono">
+                <div>
+                  <span className="text-[#8cb8a8]">User ID: </span>
+                  <span className="text-white font-bold">{selectedUserForEdit.id}</span>
+                </div>
+                <div>
+                  <span className="text-[#8cb8a8]">Account Tag: </span>
+                  <span className="text-[#fae188] font-bold">{selectedUserForEdit.uniqueUserId}</span>
+                </div>
+              </div>
+
+              {/* Name fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">First Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFirstName}
+                    onChange={(e) => setEditFirstName(e.target.value)}
+                    className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editLastName}
+                    onChange={(e) => setEditLastName(e.target.value)}
+                    className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+              </div>
+
+              {/* Email & Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="w-3.5 h-3.5 absolute left-3 top-3 text-[#8cb8a8]" />
+                    <input
+                      type="email"
+                      required
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">Phone Number</label>
+                  <div className="relative">
+                    <Phone className="w-3.5 h-3.5 absolute left-3 top-3 text-[#8cb8a8]" />
+                    <input
+                      type="text"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="+1 (555) 000-0000"
+                      className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Country & City */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">Country</label>
+                  <input
+                    type="text"
+                    value={editCountry}
+                    onChange={(e) => setEditCountry(e.target.value)}
+                    className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">City / Region</label>
+                  <input
+                    type="text"
+                    value={editCity}
+                    onChange={(e) => setEditCity(e.target.value)}
+                    className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                  />
+                </div>
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="block text-xs font-semibold text-[#a2cbbe] mb-1">Physical Address</label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="Street address, Suite / Apt"
+                  className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                />
+              </div>
+
+              {/* Role, KYC & Tier Controls */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-[#021c14] border border-[#0f4637]">
+                <div>
+                  <label className="block text-[11px] font-semibold text-[#a2cbbe] mb-1">System Role</label>
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value as any)}
+                    className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                  >
+                    <option value="user">Standard User</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-[#a2cbbe] mb-1">KYC Status</label>
+                  <select
+                    value={editKycStatus}
+                    onChange={(e) => setEditKycStatus(e.target.value as any)}
+                    className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                  >
+                    <option value="verified">Verified (Approved)</option>
+                    <option value="pending">Pending Review</option>
+                    <option value="not_started">Not Started</option>
+                    <option value="rejected">Rejected / Blocked</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-[#a2cbbe] mb-1">VIP Tier</label>
+                  <select
+                    value={editTier}
+                    onChange={(e) => setEditTier(e.target.value)}
+                    className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2 px-2.5 text-xs text-white focus:outline-none focus:border-[#38bdf8]"
+                  >
+                    <option value="Standard">Standard</option>
+                    <option value="Gold">Gold VIP</option>
+                    <option value="Platinum">Platinum VIP</option>
+                    <option value="Institutional">Institutional</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditUserModal(false);
+                    setSelectedUserForEdit(null);
+                  }}
+                  className="w-1/2 py-2.5 rounded-xl bg-[#041f17] text-[#8cb8a8] border border-[#144f3d] font-bold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-2.5 rounded-xl bg-gradient-to-r from-[#38bdf8] to-[#0ea5e9] hover:from-[#0284c7] hover:to-[#0369a1] text-black font-display font-extrabold text-xs shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Save to Firebase</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: DELETE USER CONFIRMATION                                           */}
+      {/* ========================================================================= */}
+      {showDeleteUserModal && userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="emerald-card-highlight w-full max-w-md rounded-3xl p-6 border border-red-500/50 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-2 pb-3 border-b border-red-500/20 text-red-400">
+              <AlertTriangle className="w-5 h-5" />
+              <h3 className="text-base font-bold text-white">Permanently Delete User</h3>
+            </div>
+
+            <div className="my-4 space-y-2 text-xs text-[#a0c5b9]">
+              <p>
+                Are you sure you want to permanently delete{' '}
+                <strong className="text-white">
+                  {userToDelete.firstName} {userToDelete.lastName} ({userToDelete.email})
+                </strong>
+                ?
+              </p>
+              <p className="text-red-300/90 text-[11px] p-3 rounded-xl bg-red-950/40 border border-red-500/30">
+                ⚠️ This action will immediately remove the user profile and their ledger accounts from Firebase Firestore. This cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteUserModal(false);
+                  setUserToDelete(null);
+                }}
+                className="w-1/2 py-2.5 rounded-xl bg-[#041f17] text-[#8cb8a8] border border-[#144f3d] font-bold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteUser}
+                className="w-1/2 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs shadow-lg transition-all flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete User</span>
+              </button>
             </div>
           </div>
         </div>
