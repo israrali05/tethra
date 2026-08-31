@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import { GoogleGenAI } from '@google/genai';
 
 const app = express();
 const PORT = 3000;
@@ -1387,8 +1388,38 @@ app.post('/api/investments/execute-yield-cron', (req: Request, res: Response) =>
   });
 });
 
-app.post('/api/ai/advisor', (req: Request, res: Response) => {
+let aiClient: GoogleGenAI | null = null;
+function getAIClient(): GoogleGenAI | null {
+  if (!aiClient && process.env.GEMINI_API_KEY) {
+    aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return aiClient;
+}
+
+app.post('/api/ai/advisor', async (req: Request, res: Response) => {
   const { prompt } = req.body;
+  try {
+    const ai = getAIClient();
+    if (ai) {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt || 'Provide an institutional wealth optimization recommendation for multi-currency liquidity and yield.',
+        config: {
+          systemInstruction: 'You are Tethra AI Wealth Advisor, an expert institutional fintech assistant specializing in multi-currency portfolio allocation, high-yield vault compounding, and risk management.',
+        },
+      });
+      return res.json({
+        success: true,
+        advice: response.text || 'Portfolio balanced according to institutional guidelines.',
+        prompt,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  } catch (err: any) {
+    console.warn('Gemini API call skipped or failed:', err?.message);
+  }
+
+  // Fallback response if no API key or on error
   res.json({
     success: true,
     advice: `Tethra AI Wealth Optimization: Based on institutional risk frameworks, maintain 30-40% liquid checking in USD for daily settlement, 40-50% in the High-Yield 5.4% Vault for guaranteed interest compounding, and allocate 10-20% into USDT staking for daily 2.0% dividends.`,

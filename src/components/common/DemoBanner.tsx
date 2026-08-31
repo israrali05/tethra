@@ -32,31 +32,35 @@ export const DemoBanner: React.FC = () => {
             </span>
           </div>
 
-          {/* Right: User Switcher & Demo Tools */}
+          {/* Right: Security & Network Status */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setCurrentRoute('backend-console')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#062d22] hover:bg-[#0b4a37] text-[#10b981] border border-[#10b981]/50 font-mono text-[11px] font-bold shadow transition-colors"
-              title="Inspect Live Express Backend Endpoints & Yield Cron"
-            >
-              <Server className="w-3.5 h-3.5 text-[#10b981]" />
-              <span>Backend API</span>
-            </button>
+            {currentUser?.role === 'admin' && (
+              <>
+                <button
+                  onClick={() => setCurrentRoute('backend-console')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#062d22] hover:bg-[#0b4a37] text-[#10b981] border border-[#10b981]/50 font-mono text-[11px] font-bold shadow transition-colors"
+                  title="Inspect Live Express Backend Endpoints"
+                >
+                  <Server className="w-3.5 h-3.5 text-[#10b981]" />
+                  <span>Backend API</span>
+                </button>
 
-            <button
-              onClick={() => setCurrentRoute('admin-dashboard')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-red-950/90 to-purple-950/90 hover:from-red-900 hover:to-purple-900 text-[#fae188] border border-[#d4af37]/60 font-mono text-[11px] font-bold shadow transition-colors"
-              title="Jump directly into Full Executive Admin Control Portal"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#d4af37]" />
-              <span>Admin Control</span>
-            </button>
+                <button
+                  onClick={() => setCurrentRoute('admin-dashboard')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-red-950/90 to-purple-950/90 hover:from-red-900 hover:to-purple-900 text-[#fae188] border border-[#d4af37]/60 font-mono text-[11px] font-bold shadow transition-colors"
+                  title="Executive Admin Control Portal"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#d4af37]" />
+                  <span>Admin Control</span>
+                </button>
+              </>
+            )}
 
-            {currentUser && (
+            {currentUser && currentUser.role === 'admin' && (
               <button
                 onClick={() => setShowSwitchModal(true)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b4233] hover:bg-[#115e49] text-white border border-[#217c62] transition-colors"
-                title="Switch between test users or Admin"
+                title="Switch test profiles"
               >
                 <img
                   src={currentUser.avatarUrl}

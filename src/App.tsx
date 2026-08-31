@@ -37,7 +37,7 @@ import { BackendConsoleView } from './components/dashboard/BackendConsoleView';
 import { AdminPortal } from './components/admin/AdminPortal';
 
 const MainRouter: React.FC = () => {
-  const { currentRoute, toast } = useApp();
+  const { currentRoute, currentUser, toast } = useApp();
 
   // Public Landing / Sub-pages Routes
   if (
@@ -63,8 +63,8 @@ const MainRouter: React.FC = () => {
     );
   }
 
-  // Auth Routes (Login / Register)
-  if (currentRoute === 'login' || currentRoute === 'register') {
+  // Auth Routes (Login / Register) or Unauthenticated Access to Private Views
+  if (currentRoute === 'login' || currentRoute === 'register' || !currentUser) {
     return (
       <div className="min-h-screen bg-[#002018] text-[#eafaf4] flex flex-col font-sans selection:bg-[#E5C158] selection:text-[#002018]">
         <main className="flex-1 flex items-center justify-center">
@@ -118,8 +118,14 @@ const MainRouter: React.FC = () => {
       case 'profile':
         return <ProfileSettingsView />;
       case 'backend-console':
+        if (currentUser.role !== 'admin') {
+          return <DashboardHome />;
+        }
         return <BackendConsoleView />;
       case 'admin-dashboard':
+        if (currentUser.role !== 'admin') {
+          return <DashboardHome />;
+        }
         return <AdminPortal />;
       default:
         return <DashboardHome />;

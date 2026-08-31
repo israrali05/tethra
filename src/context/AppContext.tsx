@@ -228,7 +228,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const found = users.find((u) => u.id === savedId);
       if (found) return found;
     }
-    return users.find((u) => u.role === 'admin') || users[0] || INITIAL_USERS[0];
+    return null;
   });
 
   const [accounts, setAccounts] = useState<FinancialAccount[]>(() => {
@@ -338,6 +338,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(`${STORAGE_KEY}_users`, JSON.stringify(users));
       if (currentUser) {
         localStorage.setItem(`${STORAGE_KEY}_current_user_id`, currentUser.id);
+      } else {
+        localStorage.removeItem(`${STORAGE_KEY}_current_user_id`);
       }
       localStorage.setItem(`${STORAGE_KEY}_accounts`, JSON.stringify(accounts));
       localStorage.setItem(`${STORAGE_KEY}_transactions`, JSON.stringify(transactions));
@@ -484,8 +486,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Auth Operations
   const login = (emailOrUsername: string, pass: string): boolean => {
     const clean = (emailOrUsername || '').trim().toLowerCase();
+    const cleanPass = (pass || '').trim();
+
+    if (!clean || !cleanPass) {
+      showToast('Login Failed', 'Please enter both your email/username and password.', 'error');
+      return false;
+    }
     
-    // Check if matching Admin
+    // Check if matching User or Admin
     let found = users.find(
       (u) =>
         u.email.toLowerCase() === clean ||
@@ -509,13 +517,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (found) {
+      // Validate Admin Credentials Strictly
+      if (found.role === 'admin') {
+        const validAdminPass = ['889900', 'Admin@2026!', 'admin123', 'admin'];
+        if (!validAdminPass.includes(cleanPass)) {
+          addAuditLog('FAILED_ADMIN_LOGIN', 'security', `Failed administrative login attempt for: ${clean}`);
+          showToast('Authentication Error', 'Invalid administrative credentials.', 'error');
+          return false;
+        }
+      }
+
       setCurrentUser(found);
       addAuditLog('USER_LOGIN_SUCCESS', 'auth', `User ${found.email} authenticated successfully.`);
       showToast('Welcome Back', `Logged in as ${found.firstName} ${found.lastName} (${found.role.toUpperCase()})`);
       setCurrentRoute(found.role === 'admin' ? 'admin-dashboard' : 'dashboard');
       return true;
     }
-    showToast('Login Failed', 'Invalid credentials. Use admin / 889900 or register a new client account.', 'error');
+
+    addAuditLog('FAILED_LOGIN_ATTEMPT', 'security', `Failed login attempt for identifier: ${clean}`);
+    showToast('Login Failed', 'Invalid email, username, or password. Please verify your credentials.', 'error');
     return false;
   };
 
@@ -717,12 +737,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const switchUser = (userId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator clearance required to switch profiles.', 'error');
+      addAuditLog('UNAUTHORIZED_PROFILE_SWITCH_ATTEMPT', 'security', `Unauthorized profile switch attempted by ${currentUser?.email || 'Anonymous'}`);
+      return;
+    }
     const target = users.find((u) => u.id === userId);
     if (target) {
       setCurrentUser(target);
-      showToast('Switched Profile', `Now previewing as ${target.firstName} ${target.lastName} (${target.role.toUpperCase()})`);
+      showToast('Switched Profile', `Now acting as ${target.firstName} ${target.lastName} (${target.role.toUpperCase()})`);
       if (target.role === 'admin') {
         setCurrentRoute('admin-dashboard');
+      } else {
+        setCurrentRoute('dashboard');
       }
     }
   };
@@ -1606,6 +1633,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminApproveDeposit = (depositId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized deposit approval attempt.`);
+      return;
+    }
     const deposit = deposits.find((d) => d.id === depositId);
     if (!deposit) return;
 
@@ -1640,6 +1672,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminApproveWithdrawal = (withdrawalId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized withdrawal approval attempt.`);
+      return;
+    }
     const wd = withdrawals.find((w) => w.id === withdrawalId);
     if (!wd) return;
 
@@ -1667,6 +1704,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminRejectWithdrawal = (withdrawalId: string, reason: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized withdrawal rejection attempt.`);
+      return;
+    }
     const wd = withdrawals.find((w) => w.id === withdrawalId);
     if (!wd) return;
 
@@ -1699,6 +1741,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminApproveAllPendingWithdrawals = () => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized batch withdrawal approval attempt.`);
+      return;
+    }
     const pendingWds = withdrawals.filter((w) => w.status === 'pending' || w.status === 'processing');
     if (pendingWds.length === 0) {
       showToast('No Pending Withdrawals', 'All withdrawal payouts are already processed.');
@@ -1728,6 +1775,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     category: string = 'Administrative Credit',
     notes: string = 'Manual platform balance adjustment'
   ): boolean => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator clearance required to credit balances.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized admin credit attempted.`);
+      return false;
+    }
     if (amount <= 0) {
       showToast('Invalid Amount', 'Amount must be greater than $0.', 'error');
       return false;
@@ -1802,6 +1854,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     category: string = 'Administrative Debit',
     notes: string = 'Manual platform balance correction'
   ): boolean => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator clearance required to debit balances.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized admin debit attempted.`);
+      return false;
+    }
     if (amount <= 0) {
       showToast('Invalid Amount', 'Amount must be greater than $0.', 'error');
       return false;
@@ -1877,6 +1934,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     newBalance: number,
     notes: string = 'Executive balance reset'
   ): boolean => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator clearance required to set balances.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized admin set-balance attempted.`);
+      return false;
+    }
     if (newBalance < 0) {
       showToast('Invalid Balance', 'Balance cannot be negative.', 'error');
       return false;
@@ -1926,6 +1988,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminApproveBonus = (referralId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized bonus approval attempted.`);
+      return;
+    }
     const ref = referrals.find((r) => r.id === referralId);
     if (!ref) return;
 
@@ -1996,6 +2063,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminRejectBonus = (referralId: string, reason: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized bonus rejection attempted.`);
+      return;
+    }
     const ref = referrals.find((r) => r.id === referralId);
     if (!ref) return;
 
@@ -2015,6 +2087,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     bonusType: string = 'Promotional Grant',
     reason: string = 'Executive VIP bonus award'
   ) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized custom bonus issue attempted.`);
+      return;
+    }
     const userAccs = accounts.filter((a) => a.userId === userId);
     const targetAcc = userAccs[0];
     if (!targetAcc) {
@@ -2026,6 +2103,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminBatchApproveBonuses = () => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized batch bonus approval attempted.`);
+      return;
+    }
     const pendingBonuses = referrals.filter((r) => r.status === 'pending' || r.status === 'qualified');
     if (pendingBonuses.length === 0) {
       showToast('No Pending Bonuses', 'All referral claims are currently rewarded.');
@@ -2041,6 +2123,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Executive trigger: Distribute 2% daily bonus earning to EVERY user across the platform
   const adminDistributeDailyBonusToAllUsers = (percentage: number = 2.0) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator clearance required for global yield distribution.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized global yield distribution attempted.`);
+      return;
+    }
     const rateMultiplier = (percentage || 2.0) / 100;
     const nowIso = new Date().toISOString();
     let rewardedCount = 0;
@@ -2147,6 +2234,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminToggleAccountStatus = (accountId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized account status toggle attempted.`);
+      return;
+    }
     const targetAcc = accounts.find((a) => a.id === accountId);
     if (!targetAcc) return;
 
@@ -2171,6 +2263,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     userId: string,
     status: 'not_started' | 'pending' | 'verified' | 'rejected'
   ) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized KYC status update attempted.`);
+      return;
+    }
     setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, kycStatus: status } : u)));
     if (currentUser && currentUser.id === userId) {
       setCurrentUser({ ...currentUser, kycStatus: status });
@@ -2181,6 +2278,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminDeleteUser = (userId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized user deletion attempted.`);
+      return;
+    }
     const target = users.find((u) => u.id === userId);
     if (!target) return;
     if (target.role === 'admin') {
@@ -2660,6 +2762,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminApproveKYC = (submissionId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized KYC approval attempted.`);
+      return;
+    }
     const sub = kycSubmissions.find((k) => k.id === submissionId);
     if (!sub) return;
 
@@ -2689,6 +2796,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const adminRejectKYC = (submissionId: string, reason: string) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Access Denied', 'Administrator privileges are required.', 'error');
+      addAuditLog('UNAUTHORIZED_ADMIN_ACTION', 'security', `Unauthorized KYC rejection attempted.`);
+      return;
+    }
     const sub = kycSubmissions.find((k) => k.id === submissionId);
     if (!sub) return;
 

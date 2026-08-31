@@ -224,6 +224,30 @@ export const AdminPortal: React.FC = () => {
     return true;
   });
 
+  if (!currentUser || currentUser.role !== 'admin') {
+    return (
+      <div className="p-8 sm:p-12 rounded-2xl bg-gradient-to-b from-[#180707] to-[#0a0202] border border-red-500/40 text-center space-y-5 max-w-lg mx-auto my-12 shadow-2xl">
+        <div className="w-16 h-16 rounded-2xl bg-red-950/80 border border-red-500/50 flex items-center justify-center mx-auto text-red-400">
+          <ShieldAlert className="w-8 h-8 animate-pulse" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight">403 — Unauthorized Administrative Access</h2>
+          <p className="text-xs text-red-200/80 mt-2 leading-relaxed">
+            Direct access to executive treasury controls, user ledger balances, and compliance verification requires authorized administrator credentials.
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#d4af37] to-[#fae188] text-[#031510] font-bold text-xs shadow-lg hover:opacity-90 transition-opacity"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8" id="tethra-admin-portal">
       {/* Header */}
