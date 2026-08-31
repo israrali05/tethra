@@ -5,6 +5,7 @@ import {
   saveDocument,
   syncCollectionToFirestore,
   loadCollectionFromFirestore,
+  subscribeToCollection,
 } from '../lib/firebase';
 import {
   User,
@@ -209,8 +210,6 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'tethra_fintech_state_v1';
-
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Navigation
   const [currentRoute, setCurrentRoute] = useState<string>('home');
@@ -218,123 +217,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
 
-  // State Entities
-  const [config, setConfig] = useState<SystemConfig>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_config`);
-    return saved ? JSON.parse(saved) : INITIAL_CONFIG;
-  });
-
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_users`);
-    let parsed: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
-    if (!parsed || parsed.length === 0 || !parsed.some((u) => u.role === 'admin')) {
-      parsed = INITIAL_USERS;
-    }
-    return parsed;
-  });
-
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const savedId = localStorage.getItem(`${STORAGE_KEY}_current_user_id`);
-    if (savedId) {
-      const found = users.find((u) => u.id === savedId);
-      if (found) return found;
-    }
-    return null;
-  });
-
-  const [accounts, setAccounts] = useState<FinancialAccount[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_accounts`);
-    return saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
-  });
-
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_transactions`);
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
-  });
-
-  const [deposits, setDeposits] = useState<DepositRequest[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_deposits`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_withdrawals`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_savings`);
-    return saved ? JSON.parse(saved) : INITIAL_SAVINGS_GOALS;
-  });
-
-  const [personalExpenses, setPersonalExpenses] = useState<PersonalExpense[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_expenses`);
-    return saved ? JSON.parse(saved) : INITIAL_PERSONAL_EXPENSES;
-  });
-
-  const [sharedGroups, setSharedGroups] = useState<SharedGroup[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_groups`);
-    return saved ? JSON.parse(saved) : INITIAL_GROUPS;
-  });
-
-  const [groupExpenses, setGroupExpenses] = useState<GroupExpenseItem[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_group_expenses`);
-    return saved ? JSON.parse(saved) : INITIAL_GROUP_EXPENSES;
-  });
-
-  const [cryptoAssets, setCryptoAssets] = useState<CryptoAsset[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_crypto_assets`);
-    return saved ? JSON.parse(saved) : INITIAL_CRYPTO_ASSETS;
-  });
-
-  const [cryptoHoldings, setCryptoHoldings] = useState<CryptoHolding[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_crypto_holdings`);
-    return saved ? JSON.parse(saved) : INITIAL_CRYPTO_HOLDINGS;
-  });
-
-  const [referrals, setReferrals] = useState<ReferralRecord[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_referrals`);
-    return saved ? JSON.parse(saved) : INITIAL_REFERRALS;
-  });
-
-  const [connections, setConnections] = useState<UserConnection[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_connections`);
-    return saved ? JSON.parse(saved) : INITIAL_CONNECTIONS;
-  });
-
-  const [platformActivities, setPlatformActivities] = useState<PlatformActivity[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_activities`);
-    return saved ? JSON.parse(saved) : INITIAL_PLATFORM_ACTIVITIES;
-  });
-
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_notifications`);
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
-  });
-
-  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_support`);
-    return saved ? JSON.parse(saved) : INITIAL_SUPPORT_TICKETS;
-  });
-
-  const [kycSubmissions, setKycSubmissions] = useState<KYCSubmission[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_kyc`);
-    return saved ? JSON.parse(saved) : [INITIAL_KYC_SUBMISSION];
-  });
-
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_audit`);
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
-  });
-
-  const [gifts, setGifts] = useState<UserGift[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_KEY}_gifts`);
-    return saved ? JSON.parse(saved) : INITIAL_GIFTS;
-  });
-
-  const [lastBonusClaimDate, setLastBonusClaimDate] = useState<string | null>(() => {
-    return localStorage.getItem(`${STORAGE_KEY}_last_bonus_claim_${currentUser?.id || 'guest'}`);
-  });
+  // State Entities (Direct cloud state & in-memory baseline without browser storage)
+  const [config, setConfig] = useState<SystemConfig>(INITIAL_CONFIG);
+  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [accounts, setAccounts] = useState<FinancialAccount[]>(INITIAL_ACCOUNTS);
+  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const [deposits, setDeposits] = useState<DepositRequest[]>([]);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(INITIAL_SAVINGS_GOALS);
+  const [personalExpenses, setPersonalExpenses] = useState<PersonalExpense[]>(INITIAL_PERSONAL_EXPENSES);
+  const [sharedGroups, setSharedGroups] = useState<SharedGroup[]>(INITIAL_GROUPS);
+  const [groupExpenses, setGroupExpenses] = useState<GroupExpenseItem[]>(INITIAL_GROUP_EXPENSES);
+  const [cryptoAssets, setCryptoAssets] = useState<CryptoAsset[]>(INITIAL_CRYPTO_ASSETS);
+  const [cryptoHoldings, setCryptoHoldings] = useState<CryptoHolding[]>(INITIAL_CRYPTO_HOLDINGS);
+  const [referrals, setReferrals] = useState<ReferralRecord[]>(INITIAL_REFERRALS);
+  const [connections, setConnections] = useState<UserConnection[]>(INITIAL_CONNECTIONS);
+  const [platformActivities, setPlatformActivities] = useState<PlatformActivity[]>(INITIAL_PLATFORM_ACTIVITIES);
+  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(INITIAL_SUPPORT_TICKETS);
+  const [kycSubmissions, setKycSubmissions] = useState<KYCSubmission[]>([INITIAL_KYC_SUBMISSION]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
+  const [gifts, setGifts] = useState<UserGift[]>(INITIAL_GIFTS);
+  const [lastBonusClaimDate, setLastBonusClaimDate] = useState<string | null>(null);
 
   const [activeToast, setActiveToast] = useState<{
     title: string;
@@ -347,9 +252,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('syncing');
   const isInitialCloudSyncRef = useRef<boolean>(false);
 
-  // 1. Initial Firestore Connection & Hydration
+  // 1. Initial Firestore Connection, Cloud Hydration & Real-time Listeners
   useEffect(() => {
     let mounted = true;
+    const unsubscribers: Array<() => void> = [];
+
     async function initCloudStorage() {
       try {
         setCloudSyncStatus('syncing');
@@ -358,42 +265,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         setIsCloudConnected(true);
 
-        // Fetch remote users
+        // Fetch remote users from Firestore
         const remoteUsers = await loadCollectionFromFirestore<User>('users');
         if (remoteUsers && remoteUsers.length > 0) {
-          setUsers((prev) => {
-            const combinedMap = new Map<string, User>();
-            prev.forEach((u) => combinedMap.set(u.id, u));
-            remoteUsers.forEach((u) => combinedMap.set(u.id, u));
-            return Array.from(combinedMap.values());
-          });
+          setUsers(remoteUsers);
         } else {
-          // If remote users collection is empty, seed initial users
+          // If remote users collection is empty, seed baseline users to Firestore
           await syncCollectionToFirestore('users', INITIAL_USERS);
         }
 
-        // Fetch remote accounts
+        // Fetch remote accounts from Firestore
         const remoteAccs = await loadCollectionFromFirestore<FinancialAccount>('accounts');
         if (remoteAccs && remoteAccs.length > 0) {
-          setAccounts((prev) => {
-            const combinedMap = new Map<string, FinancialAccount>();
-            prev.forEach((a) => combinedMap.set(a.id, a));
-            remoteAccs.forEach((a) => combinedMap.set(a.id, a));
-            return Array.from(combinedMap.values());
-          });
+          setAccounts(remoteAccs);
         } else {
           await syncCollectionToFirestore('accounts', INITIAL_ACCOUNTS);
         }
 
-        // Fetch remote transactions
+        // Fetch remote transactions from Firestore
         const remoteTx = await loadCollectionFromFirestore<Transaction>('transactions');
         if (remoteTx && remoteTx.length > 0) {
-          setTransactions((prev) => {
-            const combinedMap = new Map<string, Transaction>();
-            prev.forEach((t) => combinedMap.set(t.id, t));
-            remoteTx.forEach((t) => combinedMap.set(t.id, t));
-            return Array.from(combinedMap.values());
-          });
+          setTransactions(remoteTx);
         } else {
           await syncCollectionToFirestore('transactions', INITIAL_TRANSACTIONS);
         }
@@ -414,6 +306,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setAuditLogs(remoteAudit);
         }
 
+        const remoteKYC = await loadCollectionFromFirestore<KYCSubmission>('kycSubmissions');
+        if (remoteKYC && remoteKYC.length > 0) {
+          setKycSubmissions(remoteKYC);
+        }
+
+        const remoteSavings = await loadCollectionFromFirestore<SavingsGoal>('savingsGoals');
+        if (remoteSavings && remoteSavings.length > 0) {
+          setSavingsGoals(remoteSavings);
+        }
+
+        const remoteTickets = await loadCollectionFromFirestore<SupportTicket>('supportTickets');
+        if (remoteTickets && remoteTickets.length > 0) {
+          setSupportTickets(remoteTickets);
+        }
+
+        // Setup real-time Firestore listeners for active data sync
+        const unsubUsers = subscribeToCollection<User>('users', (updatedUsers) => {
+          if (updatedUsers && updatedUsers.length > 0) {
+            setUsers(updatedUsers);
+            setCurrentUser((curr) => {
+              if (!curr) return null;
+              const refreshed = updatedUsers.find((u) => u.id === curr.id);
+              return refreshed || curr;
+            });
+          }
+        });
+        unsubscribers.push(unsubUsers);
+
+        const unsubAccounts = subscribeToCollection<FinancialAccount>('accounts', (updatedAccounts) => {
+          if (updatedAccounts && updatedAccounts.length > 0) {
+            setAccounts(updatedAccounts);
+          }
+        });
+        unsubscribers.push(unsubAccounts);
+
+        const unsubTx = subscribeToCollection<Transaction>('transactions', (updatedTx) => {
+          if (updatedTx && updatedTx.length > 0) {
+            setTransactions(updatedTx);
+          }
+        });
+        unsubscribers.push(unsubTx);
+
+        const unsubDeposits = subscribeToCollection<DepositRequest>('deposits', (updatedDeps) => {
+          if (updatedDeps) setDeposits(updatedDeps);
+        });
+        unsubscribers.push(unsubDeposits);
+
+        const unsubWithdrawals = subscribeToCollection<WithdrawalRequest>('withdrawals', (updatedWiths) => {
+          if (updatedWiths) setWithdrawals(updatedWiths);
+        });
+        unsubscribers.push(unsubWithdrawals);
+
         setCloudSyncStatus('synced');
         isInitialCloudSyncRef.current = true;
       } catch (err) {
@@ -425,6 +369,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     initCloudStorage();
     return () => {
       mounted = false;
+      unsubscribers.forEach((unsub) => unsub());
     };
   }, []);
 
@@ -440,69 +385,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         syncCollectionToFirestore('withdrawals', withdrawals),
         syncCollectionToFirestore('auditLogs', auditLogs),
         syncCollectionToFirestore('kycSubmissions', kycSubmissions),
+        syncCollectionToFirestore('savingsGoals', savingsGoals),
+        syncCollectionToFirestore('supportTickets', supportTickets),
       ]);
       setCloudSyncStatus('synced');
       showToast('Cloud Database Synced', 'All user data and ledgers are securely stored in Firebase Firestore.');
     } catch (e) {
       console.warn('Manual cloud sync failed:', e);
       setCloudSyncStatus('offline');
-      showToast('Sync Warning', 'Unable to reach cloud Firestore. Local ledger remains intact.', 'warning');
+      showToast('Sync Warning', 'Unable to reach cloud Firestore. Data remains in session memory.', 'warning');
     }
   };
 
-  // Sync to LocalStorage & Debounced Autosync to Cloud Firestore
+  // Live Autosync to Firebase Firestore (Without Local Browser Storage)
   useEffect(() => {
-    try {
-      localStorage.setItem(`${STORAGE_KEY}_config`, JSON.stringify(config));
-      localStorage.setItem(`${STORAGE_KEY}_users`, JSON.stringify(users));
-      if (currentUser) {
-        localStorage.setItem(`${STORAGE_KEY}_current_user_id`, currentUser.id);
-      } else {
-        localStorage.removeItem(`${STORAGE_KEY}_current_user_id`);
-      }
-      localStorage.setItem(`${STORAGE_KEY}_accounts`, JSON.stringify(accounts));
-      localStorage.setItem(`${STORAGE_KEY}_transactions`, JSON.stringify(transactions));
-      localStorage.setItem(`${STORAGE_KEY}_deposits`, JSON.stringify(deposits));
-      localStorage.setItem(`${STORAGE_KEY}_withdrawals`, JSON.stringify(withdrawals));
-      localStorage.setItem(`${STORAGE_KEY}_savings`, JSON.stringify(savingsGoals));
-      localStorage.setItem(`${STORAGE_KEY}_expenses`, JSON.stringify(personalExpenses));
-      localStorage.setItem(`${STORAGE_KEY}_groups`, JSON.stringify(sharedGroups));
-      localStorage.setItem(`${STORAGE_KEY}_group_expenses`, JSON.stringify(groupExpenses));
-      localStorage.setItem(`${STORAGE_KEY}_crypto_assets`, JSON.stringify(cryptoAssets));
-      localStorage.setItem(`${STORAGE_KEY}_crypto_holdings`, JSON.stringify(cryptoHoldings));
-      localStorage.setItem(`${STORAGE_KEY}_referrals`, JSON.stringify(referrals));
-      localStorage.setItem(`${STORAGE_KEY}_connections`, JSON.stringify(connections));
-      localStorage.setItem(`${STORAGE_KEY}_activities`, JSON.stringify(platformActivities));
-      localStorage.setItem(`${STORAGE_KEY}_notifications`, JSON.stringify(notifications));
-      localStorage.setItem(`${STORAGE_KEY}_support`, JSON.stringify(supportTickets));
-      localStorage.setItem(`${STORAGE_KEY}_kyc`, JSON.stringify(kycSubmissions));
-      localStorage.setItem(`${STORAGE_KEY}_audit`, JSON.stringify(auditLogs));
-      localStorage.setItem(`${STORAGE_KEY}_gifts`, JSON.stringify(gifts));
-    } catch (e) {
-      console.warn('Failed to save to localStorage', e);
-    }
+    if (!isInitialCloudSyncRef.current) return;
+    const timeout = setTimeout(() => {
+      Promise.allSettled([
+        syncCollectionToFirestore('users', users),
+        syncCollectionToFirestore('accounts', accounts),
+        syncCollectionToFirestore('transactions', transactions),
+        syncCollectionToFirestore('deposits', deposits),
+        syncCollectionToFirestore('withdrawals', withdrawals),
+        syncCollectionToFirestore('auditLogs', auditLogs),
+        syncCollectionToFirestore('kycSubmissions', kycSubmissions),
+        syncCollectionToFirestore('savingsGoals', savingsGoals),
+        syncCollectionToFirestore('supportTickets', supportTickets),
+      ]).catch((e) => console.warn('Autosync to Firestore notice:', e));
+    }, 1500);
+
+    return () => clearTimeout(timeout);
   }, [
-    config,
     users,
-    currentUser,
     accounts,
     transactions,
     deposits,
     withdrawals,
     savingsGoals,
-    personalExpenses,
-    sharedGroups,
-    groupExpenses,
-    cryptoAssets,
-    cryptoHoldings,
-    referrals,
-    connections,
-    platformActivities,
-    notifications,
     supportTickets,
     kycSubmissions,
     auditLogs,
-    gifts,
   ]);
 
   // Live Crypto Price Jitter (Simulating real-time WebSocket tick updates without breaking state)
@@ -1322,7 +1244,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const nowIso = new Date().toISOString();
     setLastBonusClaimDate(nowIso);
-    localStorage.setItem(`${STORAGE_KEY}_last_bonus_claim_${currentUser.id}`, nowIso);
+    updateProfile({ lastLoginAt: nowIso });
 
     const refNum = `THR-YIELD-${Math.floor(100000 + Math.random() * 900000)}`;
     const tx: Transaction = {
@@ -2980,9 +2902,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('CSV Exported', 'Your account ledger downloaded successfully.');
   };
 
-  // Reset Data
+  // Reset Data to baseline Firestore state
   const resetAllDemoData = () => {
-    localStorage.clear();
     setConfig(INITIAL_CONFIG);
     setUsers(INITIAL_USERS);
     setCurrentUser(INITIAL_USERS[0]);
@@ -3003,7 +2924,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSupportTickets(INITIAL_SUPPORT_TICKETS);
     setKycSubmissions([INITIAL_KYC_SUBMISSION]);
     setAuditLogs(INITIAL_AUDIT_LOGS);
-    showToast('Demo Data Reset', 'All records restored to baseline production state.');
+
+    // Sync baseline to Firestore
+    syncCollectionToFirestore('users', INITIAL_USERS);
+    syncCollectionToFirestore('accounts', INITIAL_ACCOUNTS);
+    syncCollectionToFirestore('transactions', INITIAL_TRANSACTIONS);
+    showToast('Platform Reset', 'All records restored to baseline in Firebase Firestore.');
   };
 
   const updateConfig = (newConfig: Partial<SystemConfig>) => {

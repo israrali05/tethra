@@ -202,4 +202,21 @@ export async function loadCollectionFromFirestore<T>(collectionName: string): Pr
   }
 }
 
+// Subscribe to real-time updates for a collection in Firestore
+export function subscribeToCollection<T>(collectionName: string, onUpdate: (items: T[]) => void): () => void {
+  try {
+    const colRef = collection(db, collectionName);
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const items = snapshot.docs.map((doc) => doc.data() as T);
+      onUpdate(items);
+    }, (error) => {
+      console.warn(`Firestore snapshot listener error on ${collectionName}:`, error);
+    });
+    return unsubscribe;
+  } catch (err) {
+    console.warn(`Failed to initialize subscription for ${collectionName}:`, err);
+    return () => {};
+  }
+}
+
 export { collection, doc, setDoc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, getDoc };
