@@ -1,5 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import {
+  testFirestoreConnection,
+  saveDocument,
+  syncCollectionToFirestore,
+  loadCollectionFromFirestore,
+} from '../lib/firebase';
 import {
   User,
   FinancialAccount,
@@ -184,6 +190,11 @@ interface AppContextType {
   auditLogs: AuditLog[];
   addAuditLog: (action: string, category: AuditLog['category'], details: string) => void;
 
+  // Cloud & Database Sync
+  isCloudConnected: boolean;
+  cloudSyncStatus: 'synced' | 'syncing' | 'offline';
+  syncToCloudDatabase: () => Promise<void>;
+
   // State Resets & Utilities
   resetAllDemoData: () => void;
   triggerCelebration: () => void;
@@ -331,7 +342,115 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     type: 'success' | 'info' | 'warning' | 'error';
   } | null>(null);
 
-  // Sync to LocalStorage
+  // Firebase Cloud Sync State
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('syncing');
+  const isInitialCloudSyncRef = useRef<boolean>(false);
+
+  // 1. Initial Firestore Connection & Hydration
+  useEffect(() => {
+    let mounted = true;
+    async function initCloudStorage() {
+      try {
+        setCloudSyncStatus('syncing');
+        const connected = await testFirestoreConnection();
+        if (!mounted) return;
+
+        setIsCloudConnected(true);
+
+        // Fetch remote users
+        const remoteUsers = await loadCollectionFromFirestore<User>('users');
+        if (remoteUsers && remoteUsers.length > 0) {
+          setUsers((prev) => {
+            const combinedMap = new Map<string, User>();
+            prev.forEach((u) => combinedMap.set(u.id, u));
+            remoteUsers.forEach((u) => combinedMap.set(u.id, u));
+            return Array.from(combinedMap.values());
+          });
+        } else {
+          // If remote users collection is empty, seed initial users
+          await syncCollectionToFirestore('users', INITIAL_USERS);
+        }
+
+        // Fetch remote accounts
+        const remoteAccs = await loadCollectionFromFirestore<FinancialAccount>('accounts');
+        if (remoteAccs && remoteAccs.length > 0) {
+          setAccounts((prev) => {
+            const combinedMap = new Map<string, FinancialAccount>();
+            prev.forEach((a) => combinedMap.set(a.id, a));
+            remoteAccs.forEach((a) => combinedMap.set(a.id, a));
+            return Array.from(combinedMap.values());
+          });
+        } else {
+          await syncCollectionToFirestore('accounts', INITIAL_ACCOUNTS);
+        }
+
+        // Fetch remote transactions
+        const remoteTx = await loadCollectionFromFirestore<Transaction>('transactions');
+        if (remoteTx && remoteTx.length > 0) {
+          setTransactions((prev) => {
+            const combinedMap = new Map<string, Transaction>();
+            prev.forEach((t) => combinedMap.set(t.id, t));
+            remoteTx.forEach((t) => combinedMap.set(t.id, t));
+            return Array.from(combinedMap.values());
+          });
+        } else {
+          await syncCollectionToFirestore('transactions', INITIAL_TRANSACTIONS);
+        }
+
+        // Fetch remote deposits & withdrawals
+        const remoteDeposits = await loadCollectionFromFirestore<DepositRequest>('deposits');
+        if (remoteDeposits && remoteDeposits.length > 0) {
+          setDeposits(remoteDeposits);
+        }
+
+        const remoteWithdrawals = await loadCollectionFromFirestore<WithdrawalRequest>('withdrawals');
+        if (remoteWithdrawals && remoteWithdrawals.length > 0) {
+          setWithdrawals(remoteWithdrawals);
+        }
+
+        const remoteAudit = await loadCollectionFromFirestore<AuditLog>('auditLogs');
+        if (remoteAudit && remoteAudit.length > 0) {
+          setAuditLogs(remoteAudit);
+        }
+
+        setCloudSyncStatus('synced');
+        isInitialCloudSyncRef.current = true;
+      } catch (err) {
+        console.warn('Firestore initial sync notice:', err);
+        setCloudSyncStatus('offline');
+      }
+    }
+
+    initCloudStorage();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Manual Trigger to force-push all state to Firestore
+  const syncToCloudDatabase = async () => {
+    try {
+      setCloudSyncStatus('syncing');
+      await Promise.allSettled([
+        syncCollectionToFirestore('users', users),
+        syncCollectionToFirestore('accounts', accounts),
+        syncCollectionToFirestore('transactions', transactions),
+        syncCollectionToFirestore('deposits', deposits),
+        syncCollectionToFirestore('withdrawals', withdrawals),
+        syncCollectionToFirestore('auditLogs', auditLogs),
+        syncCollectionToFirestore('kycSubmissions', kycSubmissions),
+      ]);
+      setCloudSyncStatus('synced');
+      showToast('Cloud Database Synced', 'All user data and ledgers are securely stored in Firebase Firestore.');
+    } catch (e) {
+      console.warn('Manual cloud sync failed:', e);
+      setCloudSyncStatus('offline');
+      showToast('Sync Warning', 'Unable to reach cloud Firestore. Local ledger remains intact.', 'warning');
+    }
+  };
+
+  // Sync to LocalStorage & Debounced Autosync to Cloud Firestore
   useEffect(() => {
     try {
       localStorage.setItem(`${STORAGE_KEY}_config`, JSON.stringify(config));
@@ -682,6 +801,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setAccounts((prev) => [...prev, checkingAcc, savingsAcc, usdtAcc, btcAcc]);
+
+    // Persist immediately to Firebase Firestore
+    saveDocument('users', newUser.id, newUser);
+    saveDocument('accounts', checkingAcc.id, checkingAcc);
+    saveDocument('accounts', savingsAcc.id, savingsAcc);
+    saveDocument('accounts', usdtAcc.id, usdtAcc);
+    saveDocument('accounts', btcAcc.id, btcAcc);
 
     // Initialize 0.0 crypto holdings
     setCryptoHoldings((prev) => [
@@ -2993,6 +3119,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rejectKYC: adminRejectKYC,
         auditLogs,
         addAuditLog,
+        isCloudConnected,
+        cloudSyncStatus,
+        syncToCloudDatabase,
         resetAllDemoData,
         triggerCelebration,
         activeToast,

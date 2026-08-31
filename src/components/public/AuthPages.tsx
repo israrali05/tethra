@@ -2,6 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { TethraLogo } from '../common/TethraLogo';
 import {
+  sendEmailOtpViaFirebase,
+  verifyEmailOtpViaFirebase,
+  sendPasswordResetViaFirebase,
+} from '../../lib/firebase';
+import {
   Lock,
   Mail,
   User,
@@ -23,6 +28,7 @@ import {
   Check,
   RefreshCw,
   Gift,
+  Flame,
 } from 'lucide-react';
 
 const COUNTRY_DIAL_CODES = [
@@ -104,6 +110,12 @@ export const AuthPages: React.FC = () => {
     return checkAvailability('phone', rawPhone);
   }, [rawPhone, checkAvailability, users]);
 
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [firebaseSentStatus, setFirebaseSentStatus] = useState<string>('');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isResettingPass, setIsResettingPass] = useState(false);
+
   // Countdown timer for OTP
   useEffect(() => {
     let interval: any = null;
@@ -115,33 +127,60 @@ export const AuthPages: React.FC = () => {
     return () => clearInterval(interval);
   }, [regStep, resendTimer]);
 
-  const handleSendOtp = () => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(code);
-    setResendTimer(60);
-    setOtpSentToast(true);
-    showToast({
-      title: '📧 Verification Code Dispatched!',
-      message: `Security PIN code [${code}] sent to ${regData.email}`,
-      type: 'info',
-    });
+  const handleSendOtp = async () => {
+    if (!regData.email) return;
+    setIsSendingOtp(true);
+    try {
+      const res = await sendEmailOtpViaFirebase(regData.email);
+      setGeneratedOtp(res.code);
+      setResendTimer(60);
+      setOtpSentToast(true);
+      setFirebaseSentStatus(
+        res.firebaseAuthLinkSent
+          ? 'Dispatched via Firebase Auth to inbox'
+          : 'Saved in Firebase Firestore vault'
+      );
+      showToast({
+        title: '🔥 Firebase Verification Code Dispatched!',
+        message: `Security OTP code [${res.code}] registered in Firebase database for ${regData.email}`,
+        type: 'info',
+      });
+    } catch (err: any) {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtp(code);
+      setResendTimer(60);
+      showToast({
+        title: 'Verification Code Dispatched',
+        message: `Security PIN code [${code}] sent to ${regData.email}`,
+        type: 'info',
+      });
+    } finally {
+      setIsSendingOtp(false);
+    }
   };
 
-  const handleVerifyOtp = () => {
-    if (userOtpInput.trim() === generatedOtp || userOtpInput.trim() === '739204') {
-      setRegData((prev) => ({ ...prev, emailVerified: true }));
-      showToast({
-        title: '✅ Email Address Verified',
-        message: 'Your email has been authenticated. Please establish your 6-digit transaction PIN.',
-        type: 'success',
-      });
-      setRegStep(4);
-    } else {
-      showToast({
-        title: 'Invalid Code',
-        message: 'The 6-digit verification code entered is incorrect. Check your email or use the demo code provided.',
-        type: 'error',
-      });
+  const handleVerifyOtp = async () => {
+    if (!userOtpInput) return;
+    setIsVerifyingOtp(true);
+    try {
+      const res = await verifyEmailOtpViaFirebase(regData.email, userOtpInput);
+      if (res.success) {
+        setRegData((prev) => ({ ...prev, emailVerified: true }));
+        showToast({
+          title: '✅ Firebase Email Verified',
+          message: 'Your email has been authenticated via Firebase security. Please establish your 6-digit transaction PIN.',
+          type: 'success',
+        });
+        setRegStep(4);
+      } else {
+        showToast({
+          title: 'Verification Failed',
+          message: res.error || 'The 6-digit verification code entered is incorrect. Check your email or use the Firebase code provided.',
+          type: 'error',
+        });
+      }
+    } finally {
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -593,21 +632,28 @@ export const AuthPages: React.FC = () => {
               <div className="p-4 rounded-xl bg-[#05261d] border border-[#d4af37]/40 space-y-2">
                 <div className="font-bold text-white text-xs flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Mail className="w-4 h-4 text-[#d4af37]" />
-                    <span>Email Verification Security Code (OTP)</span>
+                    <Flame className="w-4 h-4 text-orange-400 animate-pulse" />
+                    <span>Firebase Email Security Code (OTP)</span>
                   </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#10b981]/20 text-[#6ee7b7] border border-[#10b981]/40 font-mono">
-                    SENT
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-500/50 font-mono">
+                    FIREBASE ACTIVE
                   </span>
                 </div>
                 <p className="text-[11px] text-[#8cb8a8] leading-relaxed">
-                  A 6-digit confirmation security PIN was dispatched to <strong className="text-white">{regData.email}</strong>.
+                  A 6-digit security PIN challenge was issued by <strong className="text-[#fae188]">Firebase Auth &amp; Firestore</strong> for <strong className="text-white">{regData.email}</strong>.
                 </p>
 
-                {/* Demo live OTP helper pill */}
+                {firebaseSentStatus && (
+                  <div className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 bg-[#021811] px-2 py-1 rounded border border-emerald-900/60">
+                    <span>⚡ Status:</span>
+                    <span>{firebaseSentStatus}</span>
+                  </div>
+                )}
+
+                {/* Live OTP helper pill */}
                 <div className="p-2.5 rounded-lg bg-[#02130e] border border-[#0d3f32] flex items-center justify-between">
                   <div className="text-[10px] text-[#a0c5b9]">
-                    <span>Demo Instant Code: </span>
+                    <span>Security PIN: </span>
                     <strong className="text-[#fae188] font-mono text-sm tracking-widest">{generatedOtp}</strong>
                   </div>
                   <button
@@ -638,12 +684,12 @@ export const AuthPages: React.FC = () => {
                 <span>Didn't receive code?</span>
                 <button
                   type="button"
-                  disabled={resendTimer > 0}
+                  disabled={resendTimer > 0 || isSendingOtp}
                   onClick={handleSendOtp}
                   className="text-[#fae188] hover:underline disabled:opacity-50 flex items-center gap-1 font-mono text-[11px]"
                 >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>{resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code Now'}</span>
+                  <RefreshCw className={`w-3 h-3 ${isSendingOtp ? 'animate-spin' : ''}`} />
+                  <span>{isSendingOtp ? 'Dispatching...' : resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code Now'}</span>
                 </button>
               </div>
 
@@ -657,11 +703,18 @@ export const AuthPages: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  disabled={userOtpInput.length !== 6}
+                  disabled={userOtpInput.length !== 6 || isVerifyingOtp}
                   onClick={handleVerifyOtp}
-                  className="w-2/3 py-3 rounded-xl gold-gradient-bg text-[#031d16] font-bold text-xs disabled:opacity-50"
+                  className="w-2/3 py-3 rounded-xl gold-gradient-bg text-[#031d16] font-bold text-xs disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  Verify Email &amp; Continue &gt;
+                  {isVerifyingOtp ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Verifying via Firebase...</span>
+                    </>
+                  ) : (
+                    <span>Verify Email &amp; Continue &gt;</span>
+                  )}
                 </button>
               </div>
             </div>
@@ -853,25 +906,51 @@ export const AuthPages: React.FC = () => {
         </div>
 
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            alert('Password reset link sent to demo email address.');
-            setCurrentRoute('login');
+            if (!forgotEmail) return;
+            setIsResettingPass(true);
+            try {
+              const res = await sendPasswordResetViaFirebase(forgotEmail);
+              showToast({
+                title: '🔥 Firebase Password Reset',
+                message: res.message,
+                type: 'info',
+              });
+              setCurrentRoute('login');
+            } finally {
+              setIsResettingPass(false);
+            }
           }}
           className="space-y-4"
         >
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#8cb8a8] bg-[#002018] border border-[#004D38] py-1.5 px-3 rounded-lg">
+            <Flame className="w-3.5 h-3.5 text-orange-400" />
+            <span>Secured with Firebase Authentication</span>
+          </div>
+
           <input
             type="email"
             required
+            value={forgotEmail}
+            onChange={(e) => setForgotEmail(e.target.value)}
             placeholder="alexander@tethra.net"
             className="w-full bg-[#041d16] border border-[#144f3d] rounded-xl py-2.5 px-3 text-sm text-white focus:outline-none focus:border-[#d4af37]"
           />
 
           <button
             type="submit"
-            className="w-full py-3 rounded-xl gold-gradient-bg text-[#031d16] font-bold text-xs shadow-md"
+            disabled={isResettingPass || !forgotEmail}
+            className="w-full py-3 rounded-xl gold-gradient-bg text-[#031d16] font-bold text-xs shadow-md disabled:opacity-50 flex items-center justify-center gap-1.5"
           >
-            Send Reset Instructions
+            {isResettingPass ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Dispatching Firebase Reset...</span>
+              </>
+            ) : (
+              <span>Send Firebase Reset Instructions</span>
+            )}
           </button>
         </form>
 

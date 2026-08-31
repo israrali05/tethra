@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.role == 'admin' || 
+         request.auth.token.email == 'admin@tethra.net');
+    }
+
+    // Email OTP Auth Challenges
+    match /authChallenges/{challengeId} {
+      allow read, write: if true;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Financial accounts
+    match /accounts/{accountId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Transactions
+    match /transactions/{transactionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Deposits
+    match /deposits/{depositId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Withdrawals
+    match /withdrawals/{withdrawalId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // KYC Submissions
+    match /kycSubmissions/{submissionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Audit logs
+    match /auditLogs/{logId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if false;
+    }
+
+    // Generic fallback for banking data collections (savings, expenses, notifications, support)
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

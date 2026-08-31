@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { ShieldCheck, Sparkles, UserCheck, RefreshCw, AlertCircle, ChevronDown, Check, Server } from 'lucide-react';
+import { ShieldCheck, Sparkles, UserCheck, RefreshCw, AlertCircle, ChevronDown, Check, Server, Cloud, CloudCheck } from 'lucide-react';
 
 export const DemoBanner: React.FC = () => {
   const {
@@ -10,6 +10,8 @@ export const DemoBanner: React.FC = () => {
     switchUser,
     resetAllDemoData,
     setCurrentRoute,
+    cloudSyncStatus,
+    syncToCloudDatabase,
   } = useApp();
 
   const [showSwitchModal, setShowSwitchModal] = useState(false);
@@ -27,6 +29,20 @@ export const DemoBanner: React.FC = () => {
               <Sparkles className="w-3 h-3 text-[#d4af37] animate-pulse" />
               NODE/EXPRESS REST API ONLINE
             </span>
+            <button
+              onClick={syncToCloudDatabase}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-mono transition-colors ${
+                cloudSyncStatus === 'synced'
+                  ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-400'
+                  : cloudSyncStatus === 'syncing'
+                  ? 'bg-amber-950/60 border-amber-500/50 text-amber-300 animate-pulse'
+                  : 'bg-zinc-900 border-zinc-700 text-zinc-400'
+              }`}
+              title="Click to manually sync all ledgers to Firebase Firestore cloud database"
+            >
+              <Cloud className="w-3 h-3" />
+              <span>{cloudSyncStatus === 'synced' ? 'Firestore Synced' : cloudSyncStatus === 'syncing' ? 'Syncing Cloud...' : 'Local Mode'}</span>
+            </button>
             <span className="text-[#a4ccc0] hidden sm:inline">
               Port 3000 Active • 2.0% 24h Yield Engine • Multi-Currency Ledger
             </span>

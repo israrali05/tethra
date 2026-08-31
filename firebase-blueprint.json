@@ -1,0 +1,165 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and authentication identity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "username": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin", "compliance_manager"] },
+        "kycStatus": { "type": "string", "enum": ["not_started", "pending", "verified", "rejected"] },
+        "uniqueUserId": { "type": "string" },
+        "referralCode": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "firstName", "lastName", "role", "kycStatus"]
+    },
+    "FinancialAccount": {
+      "title": "FinancialAccount",
+      "description": "User multi-currency ledger accounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "accountType": { "type": "string" },
+        "currency": { "type": "string" },
+        "balance": { "type": "number" },
+        "accountNumber": { "type": "string" },
+        "routingNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "frozen", "closed"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "currency", "balance", "accountNumber", "status"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial ledger transactions and money movements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "accountId": { "type": "string" },
+        "type": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string" },
+        "description": { "type": "string" },
+        "recipient": { "type": "string" },
+        "reference": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "amount", "currency", "status", "timestamp"]
+    },
+    "Deposit": {
+      "title": "Deposit",
+      "description": "Inbound deposit receipts and proofs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "method": { "type": "string" },
+        "status": { "type": "string" },
+        "referenceNumber": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "amount", "currency", "status", "referenceNumber"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "Outbound bank wire and transfer requests",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string" },
+        "destinationBank": { "type": "string" },
+        "referenceNumber": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "amount", "currency", "status", "referenceNumber"]
+    },
+    "KYCSubmission": {
+      "title": "KYCSubmission",
+      "description": "Customer identity verification records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "status": { "type": "string" },
+        "idType": { "type": "string" },
+        "submittedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "status", "submittedAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Regulatory compliance audit logs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action": { "type": "string" },
+        "category": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "action", "category", "details", "timestamp"]
+    },
+    "AuthVerificationChallenge": {
+      "title": "AuthVerificationChallenge",
+      "description": "Email OTP verification and authentication challenges",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "code": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "verified", "expired"] },
+        "createdAt": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "attempts": { "type": "number" }
+      },
+      "required": ["id", "email", "code", "status", "createdAt", "expiresAt"]
+    }
+  },
+  "firestore": {
+    "/authChallenges/{challengeId}": {
+      "schema": "AuthVerificationChallenge",
+      "description": "Email authentication OTP verification challenges"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document"
+    },
+    "/accounts/{accountId}": {
+      "schema": "FinancialAccount",
+      "description": "Financial ledger account balances"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "All financial ledger transfer entries"
+    },
+    "/deposits/{depositId}": {
+      "schema": "Deposit",
+      "description": "Inbound deposit receipts"
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": "Withdrawal",
+      "description": "Outbound bank wire dispatches"
+    },
+    "/kycSubmissions/{submissionId}": {
+      "schema": "KYCSubmission",
+      "description": "User identity compliance documents"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Audit security log entries"
+    }
+  }
+}
