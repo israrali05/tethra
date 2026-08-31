@@ -163,30 +163,64 @@ export async function sendPasswordResetViaFirebase(email: string): Promise<{ suc
   }
 }
 
+// Sanitize object for Firestore (removes undefined fields recursively so setDoc never fails)
+export function sanitizeForFirestore(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeForFirestore);
+  }
+  if (typeof obj === 'object' && !(obj instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeForFirestore(value);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 // Sync helper: save a document to Firestore
-export async function saveDocument(collectionName: string, docId: string, data: any) {
+export async function saveDocument(collectionName: string, docId: string, data: any): Promise<boolean> {
   try {
-    await setDoc(doc(db, collectionName, docId), {
+    const sanitized = sanitizeForFirestore({
       ...data,
       _syncedAt: new Date().toISOString(),
-    }, { merge: true });
+    });
+    await setDoc(doc(db, collectionName, docId), sanitized, { merge: true });
+    console.log(`✅ Successfully saved document to Firestore: ${collectionName}/${docId}`);
+    return true;
   } catch (err) {
-    console.warn(`Firestore save error on ${collectionName}/${docId}:`, err);
+    console.error(`❌ Firestore save error on ${collectionName}/${docId}:`, err);
+    return false;
   }
 }
 
 // Batch sync helper for collections
-export async function syncCollectionToFirestore(collectionName: string, items: Array<{ id: string } & any>) {
+export async function syncCollectionToFirestore(collectionName: string, items: Array<{ id: string } & any>): Promise<boolean> {
+  if (!items || items.length === 0) return true;
   try {
-    const promises = items.map((item) =>
-      setDoc(doc(db, collectionName, item.id), {
+    const promises = items.map((item) => {
+      const sanitized = sanitizeForFirestore({
         ...item,
         _syncedAt: new Date().toISOString(),
-      }, { merge: true })
-    );
-    await Promise.allSettled(promises);
+      });
+      return setDoc(doc(db, collectionName, item.id), sanitized, { merge: true });
+    });
+    const results = await Promise.allSettled(promises);
+    const failures = results.filter((r) => r.status === 'rejected');
+    if (failures.length > 0) {
+      console.warn(`Firestore sync partial failures on ${collectionName}:`, failures);
+    } else {
+      console.log(`✅ Synced ${items.length} records to Firestore collection: ${collectionName}`);
+    }
+    return failures.length === 0;
   } catch (err) {
-    console.warn(`Firestore sync error on ${collectionName}:`, err);
+    console.error(`❌ Firestore sync error on ${collectionName}:`, err);
+    return false;
   }
 }
 
@@ -197,7 +231,7 @@ export async function loadCollectionFromFirestore<T>(collectionName: string): Pr
     if (snap.empty) return null;
     return snap.docs.map((d) => d.data() as T);
   } catch (err) {
-    console.warn(`Firestore load error on ${collectionName}:`, err);
+    console.error(`❌ Firestore load error on ${collectionName}:`, err);
     return null;
   }
 }
@@ -208,7 +242,9 @@ export function subscribeToCollection<T>(collectionName: string, onUpdate: (item
     const colRef = collection(db, collectionName);
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       const items = snapshot.docs.map((doc) => doc.data() as T);
-      onUpdate(items);
+      if (items.length > 0) {
+        onUpdate(items);
+      }
     }, (error) => {
       console.warn(`Firestore snapshot listener error on ${collectionName}:`, error);
     });

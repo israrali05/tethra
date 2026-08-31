@@ -268,7 +268,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Fetch remote users from Firestore
         const remoteUsers = await loadCollectionFromFirestore<User>('users');
         if (remoteUsers && remoteUsers.length > 0) {
-          setUsers(remoteUsers);
+          const userMap = new Map<string, User>();
+          INITIAL_USERS.forEach((u) => userMap.set(u.id, u));
+          remoteUsers.forEach((u) => userMap.set(u.id, u));
+          const allMergedUsers = Array.from(userMap.values());
+          setUsers(allMergedUsers);
+          await syncCollectionToFirestore('users', allMergedUsers);
         } else {
           // If remote users collection is empty, seed baseline users to Firestore
           await syncCollectionToFirestore('users', INITIAL_USERS);
@@ -277,7 +282,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Fetch remote accounts from Firestore
         const remoteAccs = await loadCollectionFromFirestore<FinancialAccount>('accounts');
         if (remoteAccs && remoteAccs.length > 0) {
-          setAccounts(remoteAccs);
+          const accMap = new Map<string, FinancialAccount>();
+          INITIAL_ACCOUNTS.forEach((a) => accMap.set(a.id, a));
+          remoteAccs.forEach((a) => accMap.set(a.id, a));
+          const allMergedAccs = Array.from(accMap.values());
+          setAccounts(allMergedAccs);
+          await syncCollectionToFirestore('accounts', allMergedAccs);
         } else {
           await syncCollectionToFirestore('accounts', INITIAL_ACCOUNTS);
         }
@@ -285,7 +295,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Fetch remote transactions from Firestore
         const remoteTx = await loadCollectionFromFirestore<Transaction>('transactions');
         if (remoteTx && remoteTx.length > 0) {
-          setTransactions(remoteTx);
+          const txMap = new Map<string, Transaction>();
+          INITIAL_TRANSACTIONS.forEach((t) => txMap.set(t.id, t));
+          remoteTx.forEach((t) => txMap.set(t.id, t));
+          setTransactions(Array.from(txMap.values()));
         } else {
           await syncCollectionToFirestore('transactions', INITIAL_TRANSACTIONS);
         }
@@ -324,10 +337,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Setup real-time Firestore listeners for active data sync
         const unsubUsers = subscribeToCollection<User>('users', (updatedUsers) => {
           if (updatedUsers && updatedUsers.length > 0) {
-            setUsers(updatedUsers);
+            const userMap = new Map<string, User>();
+            INITIAL_USERS.forEach((u) => userMap.set(u.id, u));
+            updatedUsers.forEach((u) => userMap.set(u.id, u));
+            const merged = Array.from(userMap.values());
+            setUsers(merged);
             setCurrentUser((curr) => {
               if (!curr) return null;
-              const refreshed = updatedUsers.find((u) => u.id === curr.id);
+              const refreshed = merged.find((u) => u.id === curr.id);
               return refreshed || curr;
             });
           }

@@ -68,11 +68,15 @@ export const AdminPortal: React.FC = () => {
     auditLogs,
     showToast,
     triggerCelebration,
+    cloudSyncStatus,
+    isCloudConnected,
+    syncToCloudDatabase,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<
     'withdrawals' | 'users' | 'bonuses' | 'kyc' | 'rates' | 'logs' | 'backend-api'
   >('users');
+  const [isSyncingFirebase, setIsSyncingFirebase] = useState(false);
 
   // Search & Filter States
   const [userSearch, setUserSearch] = useState('');
@@ -468,16 +472,41 @@ export const AdminPortal: React.FC = () => {
 
           {/* User Financial Dossier Table */}
           <div className="emerald-card rounded-2xl border border-[#d4af37]/30 overflow-hidden shadow-2xl">
-            <div className="p-4 bg-[#02130e] border-b border-[#0f4637] flex items-center justify-between">
+            <div className="p-4 bg-[#02130e] border-b border-[#0f4637] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-white">All Platform User Accounts &amp; Financial Holdings</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-white">All Platform User Accounts &amp; Financial Holdings</h3>
+                  <div className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/30 text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Firebase Live</span>
+                  </div>
+                </div>
                 <p className="text-[11px] text-[#8cb8a8]">
-                  Click "⚡ Modify Balances" on any user to add or deduct money, grant custom grants, or adjust vaults.
+                  Live cloud synchronization across all registered user accounts and ledger vaults.
                 </p>
               </div>
-              <span className="text-xs font-mono text-[#fae188]">
-                Showing {filteredUsers.length} of {users.length} Users
-              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={isSyncingFirebase}
+                  onClick={async () => {
+                    setIsSyncingFirebase(true);
+                    try {
+                      await syncToCloudDatabase();
+                    } finally {
+                      setIsSyncingFirebase(false);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#032018] hover:bg-[#07362a] border border-[#144f3d] text-[11px] font-mono text-[#6ee7b7] transition-all disabled:opacity-50"
+                  title="Synchronize and pull latest records from Firebase Firestore"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingFirebase ? 'animate-spin text-orange-400' : 'text-emerald-400'}`} />
+                  <span>{isSyncingFirebase ? 'Syncing Firebase...' : 'Sync Firebase'}</span>
+                </button>
+                <span className="text-xs font-mono text-[#fae188]">
+                  Showing {filteredUsers.length} of {users.length} Users
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
